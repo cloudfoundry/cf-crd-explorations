@@ -47,7 +47,7 @@ type ProcessSpec struct {
 	HealthCheck HealthCheck `json:"healthCheck"`
 
 	// Specifies the number of Process replicas to deploy
-	Instances int64 `json:"instances"`
+	Instances int `json:"instances"`
 
 	// Specifies the Process memory limit
 	MemoryMB int64 `json:"memoryMB"`
@@ -56,7 +56,7 @@ type ProcessSpec struct {
 	DiskQuotaMB int64 `json:"diskQuotaMB"`
 
 	// Specifies the Process ports to expose
-	Ports []int64 `json:"ports"`
+	Ports []int32 `json:"ports"`
 
 	// Specifies the sidecars to be run alongside the Process
 	// TODO: Should this be its own CRD?, essentially lives at AppManifest and Process level simultaneously
@@ -115,7 +115,7 @@ type ProcessSidecar struct {
 
 // ProcessStatus defines the observed state of Process
 type ProcessStatus struct {
-	Instances  int64       `json:"instances"`
+	Instances int64 `json:"instances"`
 
 	Conditions []Condition `json:"conditions"`
 
@@ -123,7 +123,7 @@ type ProcessStatus struct {
 	// allow for easier handling of stack updates in the background or should it be closer
 	// to the original design of the CF Droplet and only refer to a static image
 	// Denormalized from the Droplet status
-	ImageRef ImageReference `json:"imageRef"`
+	ImageRef KpackImageReference `json:"imageRef"`
 }
 
 //+kubebuilder:object:root=true

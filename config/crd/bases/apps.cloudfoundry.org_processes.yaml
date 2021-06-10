@@ -102,8 +102,13 @@ spec:
                 type: object
               instances:
                 description: Specifies the number of Process replicas to deploy
-                format: int64
                 type: integer
+              lifecycleType:
+                description: LifecycleType inform the platform of how to build droplets and run apps allow only values of "docker" and "kpack" - "buildpack" is only for cf-for-vms and is not supported
+                enum:
+                - docker
+                - kpack
+                type: string
               memoryMB:
                 description: Specifies the Process memory limit
                 format: int64
@@ -111,7 +116,7 @@ spec:
               ports:
                 description: Specifies the Process ports to expose
                 items:
-                  format: int64
+                  format: int32
                   type: integer
                 type: array
               processType:
@@ -150,6 +155,7 @@ spec:
             - envSecretName
             - healthCheck
             - instances
+            - lifecycleType
             - memoryMB
             - ports
             - processType

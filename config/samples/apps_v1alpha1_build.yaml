@@ -10,11 +10,11 @@ spec:
   type: kpack
   packageRef:
     kind: Package
-    apiVersion: apps.cloudfoundry.org/v1alpha
+    apiVersion: apps.cloudfoundry.org/v1alpha1
     name: package-guid
   appRef:
     kind: App
-    apiVersion: apps.cloudfoundry.org/v1alpha
+    apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-app-guid
   lifecycleData:
     buildpacks:

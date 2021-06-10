@@ -17,22 +17,26 @@ limitations under the License.
 package controllers
 
 import (
+	"encoding/base64"
+	"fmt"
 	"context"
 
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // ProcessReconciler reconciles a Process object
@@ -63,275 +67,111 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if apierrors.IsNotFound(err) {
 			logger.Info("Process no longer exists")
 		}
+		logger.Info(fmt.Sprintf("Error fetching process: %s", err))
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// fetch the Droplet to get the imageRef
 	droplet := new(cfappsv1alpha1.Droplet)
 	if err := r.Get(ctx, types.NamespacedName{Name: process.Spec.DropletRef.Name, Namespace: req.Namespace}, droplet); err != nil {
-		// deal with this later - maybe requeue
+		logger.Info(fmt.Sprintf("Error fetching droplet: %s", err))
+		return ctrl.Result{}, err
 	}
 	// may need to verify that the droplet imageRef is in the status
 
-	memory := *resource.NewScaledQuantity(process.Spec.MemoryMB, resource.Mega)
-	ephemeralStorage := *resource.NewScaledQuantity(process.Spec.DiskQuotaMB, resource.Mega)
+	app := new(cfappsv1alpha1.App)
+	if err := r.Get(ctx, types.NamespacedName{Name: process.Spec.AppRef.Name, Namespace: req.Namespace}, app); err != nil {
+		logger.Info(fmt.Sprintf("Error fetching app: %s", err))
+		return ctrl.Result{}, err
+	}
+
+	appEnvSecret := new(corev1.Secret)
+	if err := r.Get(ctx, types.NamespacedName{Name: process.Spec.EnvSecretName, Namespace: req.Namespace}, appEnvSecret); err != nil {
+		logger.Info(fmt.Sprintf("Error fetching appEnvSecret: %s", err))
+		return ctrl.Result{}, err
+	}
 
 	// build the Deployment that we want
-	desiredDeployment := appsv1.Deployment{
+	desiredEiriniLRP := eiriniv1.LRP{
 		ObjectMeta: metav1.ObjectMeta{
+			Name: process.Name,
+			//Namespace: process.Namespace,
+			Namespace: "cf-workloads",
 			Labels: map[string]string{
 				"apps.cloudfoundry.org/appGuid":     process.Spec.AppRef.Name,
 				"apps.cloudfoundry.org/processGuid": process.Name,
 				"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
 			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
-					Kind:       process.Kind,
-					Name:       process.Name,
-					UID:        process.UID,
-				},
-			},
+			//OwnerReferences: []metav1.OwnerReference{
+			//	{
+			//		APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
+			//		Kind:       process.Kind,
+			//		Name:       process.Name,
+			//		UID:        process.UID,
+			//	},
+			//},
 		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: toInt32Ptr(int32(process.Spec.Instances)),
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"apps.cloudfoundry.org/processGuid": process.Name,
-				},
+		Spec: eiriniv1.LRPSpec{
+			GUID:        process.Name,
+			Version:     process.ResourceVersion, // TODO: Do we care about this?
+			ProcessType: process.Spec.ProcessType,
+			AppName:     app.Spec.Name,
+			AppGUID:     app.Name,
+			OrgName:     "TBD",
+			OrgGUID:     "TBD",
+			SpaceName:   "TBD",
+			SpaceGUID:   "TBD",
+			Image:       droplet.Status.Image.Reference,
+			Command:     commandForProcess(process),
+			Sidecars:    nil,
+			// TODO: Used for Docker images?
+			//PrivateRegistry: &eiriniv1.PrivateRegistry{
+			//	Username: "",
+			//	Password: "",
+			//},
+			// TODO: Can Eirini be updated to take a secret name?
+			Env: secretDataToEnvMap(appEnvSecret.Data),
+			Health: eiriniv1.Healthcheck{
+				// TODO: Revisit int types :)
+				Type:      string(process.Spec.HealthCheck.Type),
+				Port:      process.Spec.Ports[0],
+				Endpoint:  process.Spec.HealthCheck.Data.HTTPEndpoint,
+				TimeoutMs: uint(process.Spec.HealthCheck.Data.TimeoutSeconds),
 			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"apps.cloudfoundry.org/appGuid":     process.Spec.AppRef.Name,
-						"apps.cloudfoundry.org/processGuid": process.Name,
-						"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
-					},
-				},
-				Spec: corev1.PodSpec{
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{Name: droplet.Status.Image.PullSecretName},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:    process.Spec.ProcessType,
-							Image:   droplet.Status.Image.Reference,
-							Command: commandForProcess(process),
-							Ports:   portsForProcess(process),
-							EnvFrom: []corev1.EnvFromSource{
-								{SecretRef: &corev1.SecretEnvSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: process.Spec.EnvSecretName,
-									},
-								}},
-							},
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory:           memory,
-									corev1.ResourceEphemeralStorage: ephemeralStorage,
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: memory,
-								},
-							},
-							LivenessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: nil,
-									},
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "",
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host:        "",
-										Scheme:      "",
-										HTTPHeaders: nil,
-									},
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host: "",
-									},
-								},
-								InitialDelaySeconds: 0,
-								TimeoutSeconds:      0,
-								PeriodSeconds:       0,
-								SuccessThreshold:    0,
-								FailureThreshold:    0,
-							},
-							ReadinessProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: nil,
-									},
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "",
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host:        "",
-										Scheme:      "",
-										HTTPHeaders: nil,
-									},
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host: "",
-									},
-								},
-								InitialDelaySeconds: 0,
-								TimeoutSeconds:      0,
-								PeriodSeconds:       0,
-								SuccessThreshold:    0,
-								FailureThreshold:    0,
-							},
-							StartupProbe: &corev1.Probe{
-								Handler: corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: nil,
-									},
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "",
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host:        "",
-										Scheme:      "",
-										HTTPHeaders: nil,
-									},
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host: "",
-									},
-								},
-								InitialDelaySeconds: 0,
-								TimeoutSeconds:      0,
-								PeriodSeconds:       0,
-								SuccessThreshold:    0,
-								FailureThreshold:    0,
-							},
-							Lifecycle: &corev1.Lifecycle{
-								PostStart: &corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: nil,
-									},
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "",
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host:        "",
-										Scheme:      "",
-										HTTPHeaders: nil,
-									},
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host: "",
-									},
-								},
-								PreStop: &corev1.Handler{
-									Exec: &corev1.ExecAction{
-										Command: nil,
-									},
-									HTTPGet: &corev1.HTTPGetAction{
-										Path: "",
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host:        "",
-										Scheme:      "",
-										HTTPHeaders: nil,
-									},
-									TCPSocket: &corev1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											Type:   0,
-											IntVal: 0,
-											StrVal: "",
-										},
-										Host: "",
-									},
-								},
-							},
-							TerminationMessagePath:   "",
-							TerminationMessagePolicy: "",
-							ImagePullPolicy:          "",
-							SecurityContext: &corev1.SecurityContext{
-								Capabilities: &corev1.Capabilities{
-									Add:  nil,
-									Drop: nil,
-								},
-								Privileged: nil,
-								SELinuxOptions: &corev1.SELinuxOptions{
-									User:  "",
-									Role:  "",
-									Type:  "",
-									Level: "",
-								},
-								WindowsOptions: &corev1.WindowsSecurityContextOptions{
-									GMSACredentialSpecName: nil,
-									GMSACredentialSpec:     nil,
-									RunAsUserName:          nil,
-								},
-								RunAsUser:                nil,
-								RunAsGroup:               nil,
-								RunAsNonRoot:             nil,
-								ReadOnlyRootFilesystem:   nil,
-								AllowPrivilegeEscalation: nil,
-								ProcMount:                nil,
-								SeccompProfile: &corev1.SeccompProfile{
-									Type:             "",
-									LocalhostProfile: nil,
-								},
-							},
-							Stdin:     false,
-							StdinOnce: false,
-							TTY:       false,
-						},
-					},
-				},
-			},
+			Ports:     process.Spec.Ports,
+			Instances: process.Spec.Instances,
+			MemoryMB:  process.Spec.MemoryMB,
+			DiskMB:    process.Spec.DiskQuotaMB,
+			CPUWeight: 0, // TODO: Logic in Cloud Controller is very Diego-centric. Chose not to deal with cpu requests for now
 		},
 	}
-	// fetch the existing Deployment if one exists. Make a new one otherwise (in memory only?)
-	// set all fields on the Deployment
-	// apply the Deployment
-	// https://github.com/cloudfoundry/cf-k8s-networking/blob/d1ee303823b0bbaa1013a3221bf689207b6f1aca/routecontroller/controllers/networking/route_controller.go#L122
+
+	actualEiriniLRP := &eiriniv1.LRP{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: process.Name,
+			//Namespace: process.Namespace,
+			Namespace: "cf-workloads",
+		},
+	}
+
+	result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualEiriniLRP, eiriniLRPMutateFunction(actualEiriniLRP, &desiredEiriniLRP))
+	if err != nil {
+		logger.Info(fmt.Sprintf("Error occurred updating LRP: %s, %s", result, err))
+		return ctrl.Result{}, err
+	}
+
+	logger.Info(fmt.Sprintf("Should have created the LRP: %s", result))
 	return ctrl.Result{}, nil
 }
 
-func portsForProcess(process *cfappsv1alpha1.Process) []corev1.ContainerPort {
-	var ports []corev1.ContainerPort
-	for _, port := range process.Spec.Ports {
-		ports = append(ports, corev1.ContainerPort{
-			ContainerPort: int32(port),
-		})
+func eiriniLRPMutateFunction(actualLRP, desiredLRP *eiriniv1.LRP) controllerutil.MutateFn {
+	return func() error {
+		actualLRP.ObjectMeta.Labels = desiredLRP.ObjectMeta.Labels
+		actualLRP.ObjectMeta.Annotations = desiredLRP.ObjectMeta.Annotations
+		//actualLRP.ObjectMeta.OwnerReferences = desiredLRP.ObjectMeta.OwnerReferences
+		actualLRP.Spec = desiredLRP.Spec
+		return nil
 	}
-	return ports
 }
 
 func commandForProcess(process *cfappsv1alpha1.Process) []string {
@@ -342,6 +182,20 @@ func commandForProcess(process *cfappsv1alpha1.Process) []string {
 	} else {
 		return []string{"/bin/sh", "-c", process.Spec.Command}
 	}
+}
+
+func secretDataToEnvMap(secretData map[string][]byte) map[string]string {
+	convertedMap := make(map[string]string)
+	for k, v := range secretData {
+		decodedBytes, err := base64.StdEncoding.DecodeString(string(v))
+		if err != nil {
+			// TODO: Pass up the error and fail the reconcile?
+			continue
+		}
+
+		convertedMap[k] = string(decodedBytes)
+	}
+	return convertedMap
 }
 
 func toInt32Ptr(i int32) *int32 {
