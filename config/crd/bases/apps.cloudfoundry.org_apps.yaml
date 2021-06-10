@@ -47,7 +47,7 @@ spec:
                 - name
                 type: object
               envSecretName:
-                description: Specifies the k8s secret name with the App crendentials and other private info
+                description: Specifies the k8s secret name with the App credentials and other private info
                 type: string
               lifecycle:
                 description: Specifies how to build droplets and run apps container for list of buildpacks and stack to build them for docker this is empty

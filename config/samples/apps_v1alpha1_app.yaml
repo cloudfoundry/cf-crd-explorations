@@ -17,5 +17,5 @@ spec:
   envSecretName: my-app-guid-env
   dropletRef:
     kind: Droplet
-    apiVersion: apps.cloudfoundry.org/v1alpha
+    apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-droplet-guid

@@ -10,9 +10,14 @@ spec:
   type: kpack
   appRef:
     kind: App
-    apiVersion: apps.cloudfoundry.org/v1alpha
+    apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-app-guid
   buildRef:
     kind: Build
-    apiVersion: apps.cloudfoundry.org/v1alpha
+    apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-build-guid
+status:
+  image:
+    reference: "relintdockerhubpushbot/dora"
+    pullSecretName: ""
+  conditions: []

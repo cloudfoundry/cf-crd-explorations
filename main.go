@@ -35,6 +35,7 @@ import (
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
+	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
 
 	"cloudfoundry.org/cf-crd-explorations/controllers"
 	//+kubebuilder:scaffold:imports
@@ -49,6 +50,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(appsv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

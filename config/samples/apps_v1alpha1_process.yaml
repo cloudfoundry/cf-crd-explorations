@@ -10,15 +10,20 @@ metadata:
 spec:
   appRef:
     kind: App
-    apiVersion: apps.cloudfoundry.org/v1alpha
+    apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-app-guid
-  processType: my-process-type
-  command: start-web.sh
+  dropletRef:
+    kind: Droplet
+    apiVersion: apps.cloudfoundry.org/v1alpha1
+    name: kpack-droplet-guid
+  lifecycleType: kpack
+  processType: web
+  command: ""
   state: STARTED
   healthCheck:
     type: http
     data:
-      httpEndpoint: /healthcheck
+      httpEndpoint: /health
       invocationTimeoutSeconds: 10
       timeoutSeconds: 10
   instances: 5
@@ -26,6 +31,7 @@ spec:
   diskQuotaMB: 512
   ports:
     - 8080
+  envSecretName: my-app-guid-env
   sidecars:
     - name: authenticator
       command: bundle exec run-authenticator
