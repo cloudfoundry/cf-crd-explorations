@@ -48,7 +48,7 @@ type AppSpec struct {
 	// for docker this is empty
 	Lifecycle Lifecycle `json:"lifecycle"`
 
-	// Specifies the k8s secret name with the App crendentials and other private info
+	// Specifies the k8s secret name with the App credentials and other private info
 	EnvSecretName string `json:"envSecretName"`
 
 	// Specifies the Droplet info for the app

@@ -53,6 +53,23 @@ spec:
                 description: Specifies the Process disk limit
                 format: int64
                 type: integer
+              dropletRef:
+                description: Specifies the Droplet info for the Process Denormalized from the App
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+              envSecretName:
+                description: Specifies the k8s secret name with the Process credentials and other private info Denormalized from the App
+                type: string
               healthCheck:
                 description: Specifies the Liveness Probe (k8s) details of the Process
                 properties:
@@ -129,6 +146,8 @@ spec:
             - appRef
             - command
             - diskQuotaMB
+            - dropletRef
+            - envSecretName
             - healthCheck
             - instances
             - memoryMB
@@ -167,11 +186,26 @@ spec:
                   - type
                   type: object
                 type: array
+              imageRef:
+                description: 'TODO: Open question: Should this be flexible and use the "latestImage" duck type to allow for easier handling of stack updates in the background or should it be closer to the original design of the CF Droplet and only refer to a static image Denormalized from the Droplet status'
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
               instances:
                 format: int64
                 type: integer
             required:
             - conditions
+            - imageRef
             - instances
             type: object
         type: object

@@ -38,15 +38,21 @@ type DropletSpec struct {
 	BuildRef BuildReference `json:"buildRef"`
 }
 
+type Image struct {
+	Reference string `json:"reference"`
+	PullSecretName string `json:"pullSecretName"`
+}
+
 // DropletStatus defines the observed state of Droplet
 type DropletStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Image Image `json:"image, omitempty"`
 
 	// TODO: Open question: Should this be flexible and use the "latestImage" duck type to
 	// allow for easier handling of stack updates in the background or should it be closer
 	// to the original design of the CF Droplet and only refer to a static image
-	ImageRef ImageReference `json:"imageRef,omitempty"`
+	ImageRef KpackImageReference `json:"imageRef,omitempty"`
 
 	// Describes Docker metadata including ports the container exposes
 	LifecycleData DockerLifecycleData `json:"lifecycleData,omitempty"`
@@ -59,13 +65,6 @@ type DockerLifecycleData struct {
 	// TODO: Decide if we need this
 	// Marshalled blob of JSON goo
 	ExecutionMetadata string `json:"executionMetadata"`
-}
-
-// ImageReference is used in Droplet to refer to Kind that implements the "latest image duck type"
-type ImageReference struct {
-	Kind       string `json:"kind"`
-	APIVersion string `json:"apiVersion"`
-	Name       string `json:"name"`
 }
 
 //+kubebuilder:object:root=true
