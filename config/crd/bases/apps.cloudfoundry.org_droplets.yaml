@@ -1,0 +1,141 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: droplets.apps.cloudfoundry.org
+spec:
+  group: apps.cloudfoundry.org
+  names:
+    kind: Droplet
+    listKind: DropletList
+    plural: droplets
+    singular: droplet
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Droplet is the Schema for the droplets API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DropletSpec defines the desired state of Droplet
+            properties:
+              appRef:
+                description: Specifies the App associated with this Droplet
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+              buildRef:
+                description: Specifies the Build associated with this Droplet
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+              type:
+                description: Specifies the Lifecycle type kpack or docker of the droplet
+                enum:
+                - docker
+                - kpack
+                type: string
+            required:
+            - appRef
+            - buildRef
+            - type
+            type: object
+          status:
+            description: DropletStatus defines the observed state of Droplet
+            properties:
+              conditions:
+                description: Describes the conditions of the Droplet
+                items:
+                  description: 'TODO: Double check that we are using the correct the condition type from kubernetes Loosely following this KEP: https://github.com/kubernetes/enhancements/tree/master/keps/sig-api-machinery/1623-standardize-conditions Eventually we can update to use standard Kubernetes types'
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              imageRef:
+                description: 'TODO: Open question: Should this be flexible and use the "latestImage" duck type to allow for easier handling of stack updates in the background or should it be closer to the original design of the CF Droplet and only refer to a static image'
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+              lifecycleData:
+                description: Describes Docker metadata including ports the container exposes
+                properties:
+                  executionMetadata:
+                    description: 'TODO: Decide if we need this Marshalled blob of JSON goo'
+                    type: string
+                required:
+                - executionMetadata
+                type: object
+            required:
+            - conditions
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

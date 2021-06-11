@@ -1,0 +1,13 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Package
+metadata:
+  name: bits-package-guid
+  labels:
+    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
+spec:
+  type: bits
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: my-app-guid

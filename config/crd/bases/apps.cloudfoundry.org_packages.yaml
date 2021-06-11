@@ -1,0 +1,140 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: packages.apps.cloudfoundry.org
+spec:
+  group: apps.cloudfoundry.org
+  names:
+    kind: Package
+    listKind: PackageList
+    plural: packages
+    singular: package
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Package is the Schema for the packages API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PackageSpec defines the desired state of Package
+            properties:
+              appRef:
+                description: Specifies the App that owns this package
+                properties:
+                  apiVersion:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                type: object
+              sourceImage:
+                description: Specifies the details for the docker image and registry for docker package flow
+                properties:
+                  pullSecretName:
+                    description: This is the k8s secret that contains the details to pull the docker image
+                    type: string
+                  reference:
+                    type: string
+                required:
+                - reference
+                type: object
+              type:
+                description: 'Specifies the package type, either bits or docker Valid values are: "bits": package to upload source code "docker": package references a docker image from a registry'
+                enum:
+                - bits
+                - docker
+                type: string
+            required:
+            - appRef
+            - type
+            type: object
+          status:
+            description: PackageStatus defines the observed state of Package
+            properties:
+              checksum:
+                description: Contains the checksum for the packaged source code image
+                properties:
+                  type:
+                    description: CheckSumType restrict allowed checksum types to enum
+                    enum:
+                    - sha256
+                    - sha1
+                    type: string
+                  value:
+                    type: string
+                required:
+                - type
+                - value
+                type: object
+              conditions:
+                description: Contains the current status of the package
+                items:
+                  description: 'TODO: Double check that we are using the correct the condition type from kubernetes Loosely following this KEP: https://github.com/kubernetes/enhancements/tree/master/keps/sig-api-machinery/1623-standardize-conditions Eventually we can update to use standard Kubernetes types'
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              image:
+                description: Contains the packaged source code as a image
+                properties:
+                  pullSecretName:
+                    description: This is the k8s secret that contains the details to pull the docker image
+                    type: string
+                  reference:
+                    type: string
+                required:
+                - reference
+                type: object
+            required:
+            - conditions
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

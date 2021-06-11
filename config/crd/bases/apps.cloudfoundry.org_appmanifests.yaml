@@ -1,0 +1,134 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.5.0
+  creationTimestamp: null
+  name: appmanifests.apps.cloudfoundry.org
+spec:
+  group: apps.cloudfoundry.org
+  names:
+    kind: AppManifest
+    listKind: AppManifestList
+    plural: appmanifests
+    singular: appmanifest
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AppManifest is the Schema for the appmanifests API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AppManifestSpec defines the desired state of AppManifest
+            properties:
+              buildpacks:
+                items:
+                  type: string
+                type: array
+              env:
+                additionalProperties:
+                  type: string
+                type: object
+              name:
+                type: string
+              processes:
+                items:
+                  description: 'TODO: all of these fields probably need to be marked as optional json omitempty make call after we decide if Manifests CRD is the way'
+                  properties:
+                    command:
+                      type: string
+                    disk_quota:
+                      type: string
+                    health-check-http-endpoint:
+                      type: string
+                    health-check-invocation-timeout:
+                      format: int64
+                      type: integer
+                    health-check-type:
+                      type: string
+                    instances:
+                      format: int64
+                      type: integer
+                    memory:
+                      type: string
+                    timeout:
+                      description: 'When it can be opitional need to use *int64 TODO: We need to think through how defaulting for omitted values might work in the shim'
+                      format: int64
+                      type: integer
+                    type:
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
+              routes:
+                items:
+                  properties:
+                    route:
+                      type: string
+                  required:
+                  - route
+                  type: object
+                type: array
+              services:
+                items:
+                  type: object
+                type: array
+              sidecars:
+                items:
+                  properties:
+                    command:
+                      type: string
+                    memory:
+                      description: 'TODO: have discussion on input validation like "10M" kubebuilder may have special input type that we can use'
+                      type: string
+                    name:
+                      type: string
+                    process_types:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - command
+                  - memory
+                  - name
+                  - process_types
+                  type: object
+                type: array
+              stack:
+                type: string
+            required:
+            - buildpacks
+            - env
+            - name
+            - processes
+            - routes
+            - services
+            - sidecars
+            - stack
+            type: object
+          status:
+            description: AppManifestStatus defines the observed state of AppManifest
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

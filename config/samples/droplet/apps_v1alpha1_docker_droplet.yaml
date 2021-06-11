@@ -1,0 +1,18 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Droplet
+metadata:
+  name: docker-droplet-guid
+  labels:
+    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
+    cf4k8s.cloudfoundry.org/buildGuid: my-build-guid
+spec:
+  type: docker
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: my-app-guid
+  buildRef:
+    kind: Build
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: my-build-guid

@@ -1,0 +1,52 @@
+#! This CR is intentionally commented out. We found issues with the services are configured in the manifest
+#! and what the Kubernetes API allows
+
+#! ---
+#! apiVersion: apps.cloudfoundry.org/v1alpha1
+#! kind: AppManifest
+#! metadata:
+#!   name: cf-org-name-cf-space-name-cf-app-name
+#!   annotations:
+#!     contact: bob@example.com jane@example.com
+#!   labels:
+#!     sensitive: true
+#! spec:
+#!   name: app1
+#!   buildpacks:
+#!     - ruby_buildpack
+#!     - java_buildpack
+#!   env:
+#!     VAR1: value1
+#!     VAR2: value2
+#!   routes:
+#!     - route: route.example.com
+#!     - route: another-route.example.com
+#!   processes:
+#!     - type: web
+#!       command: start-web.sh
+#!       disk_quota: 512M
+#!       health-check-http-endpoint: /healthcheck
+#!       health-check-type: http
+#!       health-check-invocation-timeout: 10
+#!       instances: 3
+#!       memory: 500M
+#!       timeout: 10
+#!     - type: worker
+#!       command: start-worker.sh
+#!       disk_quota: 1G
+#!       health-check-type: process
+#!       instances: 2
+#!       memory: 256M
+#!       timeout: 15
+#!   sidecars:
+#!     - name: authenticator
+#!       process_types:
+#!         - web
+#!         - worker
+#!       command: bundle exec run-authenticator
+#!       memory: 800M
+#!     - name: upcaser
+#!       process_types:
+#!         - worker
+#!       command: ./tr-server
+#!       memory: 2G

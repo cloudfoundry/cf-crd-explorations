@@ -1,0 +1,35 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Process
+metadata:
+  name: my-process-guid
+  labels:
+    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
+    cf4k8s.cloudfoundry.org/processGuid: my-process-guid
+    cf4k8s.cloudfoundry.org/processType: my-process-type
+spec:
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: my-app-guid
+  processType: my-process-type
+  command: start-web.sh
+  state: STARTED
+  healthCheck:
+    type: http
+    data:
+      httpEndpoint: /healthcheck
+      invocationTimeoutSeconds: 10
+      timeoutSeconds: 10
+  instances: 5
+  memoryMB: 500
+  diskQuotaMB: 512
+  ports:
+    - 8080
+  sidecars:
+    - name: authenticator
+      command: bundle exec run-authenticator
+      memoryMB: 800
+    - name: upcaser
+      command: ./tr-server
+      memoryMB: 2000

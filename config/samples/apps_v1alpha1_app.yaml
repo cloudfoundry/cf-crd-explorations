@@ -1,0 +1,21 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: App
+metadata:
+  name: my-app-guid
+  labels:
+    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
+    cf4k8s.cloudfoundry.org/appName: my-app-name
+spec:
+  name: my-app-name
+  state: STARTED
+  type: kpack
+  lifecycle:
+    data:
+      buildpacks: []
+      stack: cflinuxfs3
+  envSecretName: my-app-guid-env
+  dropletRef:
+    kind: Droplet
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: my-droplet-guid

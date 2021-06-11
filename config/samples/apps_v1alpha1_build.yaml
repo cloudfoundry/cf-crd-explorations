@@ -1,0 +1,29 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Build
+metadata:
+  name: build-guid
+  labels:
+    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
+    cf4k8s.cloudfoundry.org/packageGuid: my-package-guid
+spec:
+  type: kpack
+  packageRef:
+    kind: Package
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: package-guid
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: my-app-guid
+  lifecycleData:
+    buildpacks:
+      - java_buildpack
+    stack: cflinuxfs3
+  kpackBuildSelector:
+    matchLabels:
+      cf4k8s.cloudfoundry.org/buildGuid: build-guid
+  kpackImageTemplate:
+    metadata:
+      labels:
+        cf4k8s.cloudfoundry.org/buildGuid: build-guid

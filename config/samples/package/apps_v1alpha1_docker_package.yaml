@@ -1,0 +1,15 @@
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Package
+metadata:
+  name: docker-package-guid
+  labels:
+    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
+spec:
+  type: docker
+  sourceImage:
+    reference: gcr.io/my-stuff/package-guid-source
+    pullSecretName: my-image-pull-secret
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha
+    name: my-app-guid

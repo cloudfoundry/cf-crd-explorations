@@ -1,0 +1,62 @@
+domain: cloudfoundry.org
+layout:
+- go.kubebuilder.io/v3
+projectName: cf-crd-explorations
+repo: cloudfoundry.org/cf-crd-explorations
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: apps
+  kind: App
+  path: cloudfoundry.org/cf-crd-explorations/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: apps
+  kind: Process
+  path: cloudfoundry.org/cf-crd-explorations/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: apps
+  kind: Package
+  path: cloudfoundry.org/cf-crd-explorations/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: apps
+  kind: Build
+  path: cloudfoundry.org/cf-crd-explorations/api/v1alpha1
+  plural: builds
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: apps
+  kind: Droplet
+  path: cloudfoundry.org/cf-crd-explorations/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cloudfoundry.org
+  group: apps
+  kind: AppManifest
+  path: cloudfoundry.org/cf-crd-explorations/api/v1alpha1
+  version: v1alpha1
+version: "3"

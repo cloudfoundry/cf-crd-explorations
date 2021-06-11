@@ -1,0 +1,20 @@
+# permissions for end users to view processes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: process-viewer-role
+rules:
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - processes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - processes/status
+  verbs:
+  - get

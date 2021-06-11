@@ -1,0 +1,164 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - appmanifests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - appmanifests/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - appmanifests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - apps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - apps/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - apps/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - builds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - builds/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - builds/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - droplets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - droplets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - droplets/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - packages
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - packages/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - packages/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - processes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - processes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - apps.cloudfoundry.org
+  resources:
+  - processes/status
+  verbs:
+  - get
+  - patch
+  - update
