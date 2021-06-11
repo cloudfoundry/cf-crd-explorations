@@ -17,13 +17,13 @@ spec:
     apiVersion: apps.cloudfoundry.org/v1alpha1
     name: kpack-droplet-guid
   lifecycleType: kpack
-  processType: my-process-type
-  command: start-web.sh
+  processType: web
+  command: ""
   state: STARTED
   healthCheck:
     type: http
     data:
-      httpEndpoint: /healthcheck
+      httpEndpoint: /health
       invocationTimeoutSeconds: 10
       timeoutSeconds: 10
   instances: 5

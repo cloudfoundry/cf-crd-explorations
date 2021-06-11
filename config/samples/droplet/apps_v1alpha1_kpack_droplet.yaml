@@ -18,6 +18,6 @@ spec:
     name: my-build-guid
 status:
   image:
-    reference: cloudfoundry/httpbin
+    reference: "relintdockerhubpushbot/dora"
     pullSecretName: ""
   conditions: []

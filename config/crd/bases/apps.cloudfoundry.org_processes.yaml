@@ -149,7 +149,6 @@ spec:
                 type: string
             required:
             - appRef
-            - command
             - diskQuotaMB
             - dropletRef
             - envSecretName

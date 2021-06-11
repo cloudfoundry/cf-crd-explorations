@@ -35,7 +35,7 @@ type ProcessSpec struct {
 	ProcessType string `json:"processType"`
 
 	// Specifies the Command(k8s) ENTRYPOINT(Docker) of the Process
-	Command string `json:"command"`
+	Command string `json:"command,omitempty"`
 
 	// Specifies the current state of the process
 	// Valid values are:

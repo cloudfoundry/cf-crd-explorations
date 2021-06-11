@@ -17,24 +17,20 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
-	"context"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -176,7 +172,7 @@ func eiriniLRPMutateFunction(actualLRP, desiredLRP *eiriniv1.LRP) controllerutil
 
 func commandForProcess(process *cfappsv1alpha1.Process) []string {
 	if process.Spec.Command == "" {
-		return nil
+		return []string{}
 	} else if process.Spec.LifecycleType == "kpack" {
 		return []string{"/cnb/lifecycle/launcher", process.Spec.Command}
 	} else {
