@@ -17,7 +17,7 @@ func (a *AppFilter) Filter(input interface{}) bool {
 		fmt.Printf("Error, could not cast filter input to app\n")
 		return false
 	}
-	fmt.Printf("AppFilter cast to App successful: %v", *app)
+	//fmt.Printf("AppFilter cast to App successful: %v", *app)
 
 	// Take the URL input list and compare to the field in the App K8s CR Object
 	if !queryParameterMatches(a.QueryParameters["guids"], app.ObjectMeta.Name) {
