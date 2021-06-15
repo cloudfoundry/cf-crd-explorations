@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -90,22 +89,21 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// build the Deployment that we want
 	desiredEiriniLRP := eiriniv1.LRP{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: process.Name,
-			//Namespace: process.Namespace,
-			Namespace: "cf-workloads",
+			Name:      process.Name,
+			Namespace: process.Namespace,
 			Labels: map[string]string{
 				"apps.cloudfoundry.org/appGuid":     process.Spec.AppRef.Name,
 				"apps.cloudfoundry.org/processGuid": process.Name,
 				"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
 			},
-			//OwnerReferences: []metav1.OwnerReference{
-			//	{
-			//		APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
-			//		Kind:       process.Kind,
-			//		Name:       process.Name,
-			//		UID:        process.UID,
-			//	},
-			//},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
+					Kind:       process.Kind,
+					Name:       process.Name,
+					UID:        process.UID,
+				},
+			},
 		},
 		Spec: eiriniv1.LRPSpec{
 			GUID:        process.Name,
@@ -125,7 +123,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			//	Username: "",
 			//	Password: "",
 			//},
-			// TODO: Can Eirini be updated to take a secret name?
+			// TODO: Can Eirini LRP be updated to take a secret name?
 			Env: secretDataToEnvMap(appEnvSecret.Data),
 			Health: eiriniv1.Healthcheck{
 				// TODO: Revisit int types :)
@@ -144,9 +142,8 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	actualEiriniLRP := &eiriniv1.LRP{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: process.Name,
-			//Namespace: process.Namespace,
-			Namespace: "cf-workloads",
+			Name:      process.Name,
+			Namespace: process.Namespace,
 		},
 	}
 
@@ -183,19 +180,9 @@ func commandForProcess(process *cfappsv1alpha1.Process) []string {
 func secretDataToEnvMap(secretData map[string][]byte) map[string]string {
 	convertedMap := make(map[string]string)
 	for k, v := range secretData {
-		decodedBytes, err := base64.StdEncoding.DecodeString(string(v))
-		if err != nil {
-			// TODO: Pass up the error and fail the reconcile?
-			continue
-		}
-
-		convertedMap[k] = string(decodedBytes)
+		convertedMap[k] = string(v)
 	}
 	return convertedMap
-}
-
-func toInt32Ptr(i int32) *int32 {
-	return &i
 }
 
 // SetupWithManager sets up the controller with the Manager.
