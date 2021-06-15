@@ -61,16 +61,6 @@ type ProcessSpec struct {
 	// Specifies the sidecars to be run alongside the Process
 	// TODO: Should this be its own CRD?, essentially lives at AppManifest and Process level simultaneously
 	Sidecars []ProcessSidecar `json:"sidecars"`
-
-	// Specifies the k8s secret name with the Process credentials and other private info
-	// Denormalized from the App
-	EnvSecretName string `json:"envSecretName"`
-
-	// Specifies the Droplet info for the Process
-	// Denormalized from the App
-	DropletRef DropletReference `json:"dropletRef"`
-
-	LifecycleType LifecycleType `json:"lifecycleType"`
 }
 
 type HealthCheck struct {
