@@ -1,0 +1,30 @@
+apiVersion: networking.cloudfoundry.org/v1alpha1
+kind: Route
+metadata:
+  finalizers:
+    - routes.networking.cloudfoundry.org
+  labels:
+    app.kubernetes.io/component: cf-networking
+    app.kubernetes.io/managed-by: cf-crd-explorations
+    app.kubernetes.io/name: sample-cf-route
+    app.kubernetes.io/part-of: cf-crd-explorations
+    app.kubernetes.io/version: 0.0.0
+  name: sample-cf-route
+spec:
+  destinations:
+    - app:
+        guid: my-app-guid
+        process:
+          type: web
+      guid: my-destination-guid
+      port: 8080
+      selector:
+        matchLabels:
+          cloudfoundry.org/app_guid: my-app-guid
+          cloudfoundry.org/process_type: web
+  # Fill in your own domain info below!
+  domain:
+    internal: false
+    name: INSERT_APPS_DOMAIN_HERE
+  host: my-app-name
+  url: my-app-name.INSERT_APPS_DOMAIN_HERE
