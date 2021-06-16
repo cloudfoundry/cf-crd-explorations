@@ -19,12 +19,14 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
@@ -58,6 +60,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// fetch Process
 	process := new(cfappsv1alpha1.Process)
+	logger.Info(fmt.Sprintf("Attempting to reconcile %s", req.NamespacedName))
 	if err := r.Get(ctx, req.NamespacedName, process); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Process no longer exists")
@@ -66,22 +69,22 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// fetch the Droplet to get the imageRef
-	droplet := new(cfappsv1alpha1.Droplet)
-	if err := r.Get(ctx, types.NamespacedName{Name: process.Spec.DropletRef.Name, Namespace: req.Namespace}, droplet); err != nil {
-		logger.Info(fmt.Sprintf("Error fetching droplet: %s", err))
-		return ctrl.Result{}, err
-	}
-	// may need to verify that the droplet imageRef is in the status
-
 	app := new(cfappsv1alpha1.App)
 	if err := r.Get(ctx, types.NamespacedName{Name: process.Spec.AppRef.Name, Namespace: req.Namespace}, app); err != nil {
 		logger.Info(fmt.Sprintf("Error fetching app: %s", err))
 		return ctrl.Result{}, err
 	}
 
+	// fetch the Droplet to get the imageRef
+	droplet := new(cfappsv1alpha1.Droplet)
+	if err := r.Get(ctx, types.NamespacedName{Name: app.Spec.DropletRef.Name, Namespace: req.Namespace}, droplet); err != nil {
+		logger.Info(fmt.Sprintf("Error fetching droplet: %s", err))
+		return ctrl.Result{}, err
+	}
+	// may need to verify that the droplet imageRef is in the status
+
 	appEnvSecret := new(corev1.Secret)
-	if err := r.Get(ctx, types.NamespacedName{Name: process.Spec.EnvSecretName, Namespace: req.Namespace}, appEnvSecret); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: app.Spec.EnvSecretName, Namespace: req.Namespace}, appEnvSecret); err != nil {
 		logger.Info(fmt.Sprintf("Error fetching appEnvSecret: %s", err))
 		return ctrl.Result{}, err
 	}
@@ -116,7 +119,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			SpaceName:   "TBD",
 			SpaceGUID:   "TBD",
 			Image:       droplet.Status.Image.Reference,
-			Command:     commandForProcess(process),
+			Command:     commandForProcess(process, app),
 			Sidecars:    nil,
 			// TODO: Used for Docker images?
 			//PrivateRegistry: &eiriniv1.PrivateRegistry{
@@ -153,7 +156,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	logger.Info(fmt.Sprintf("Should have created the LRP: %s", result))
+	logger.Info(fmt.Sprintf("Successfully Created/Updated LRP: %s", result))
 	return ctrl.Result{}, nil
 }
 
@@ -161,16 +164,16 @@ func eiriniLRPMutateFunction(actualLRP, desiredLRP *eiriniv1.LRP) controllerutil
 	return func() error {
 		actualLRP.ObjectMeta.Labels = desiredLRP.ObjectMeta.Labels
 		actualLRP.ObjectMeta.Annotations = desiredLRP.ObjectMeta.Annotations
-		//actualLRP.ObjectMeta.OwnerReferences = desiredLRP.ObjectMeta.OwnerReferences
+		actualLRP.ObjectMeta.OwnerReferences = desiredLRP.ObjectMeta.OwnerReferences
 		actualLRP.Spec = desiredLRP.Spec
 		return nil
 	}
 }
 
-func commandForProcess(process *cfappsv1alpha1.Process) []string {
+func commandForProcess(process *cfappsv1alpha1.Process, app *cfappsv1alpha1.App) []string {
 	if process.Spec.Command == "" {
 		return []string{}
-	} else if process.Spec.LifecycleType == "kpack" {
+	} else if app.Spec.Type == "kpack" {
 		return []string{"/cnb/lifecycle/launcher", process.Spec.Command}
 	} else {
 		return []string{"/bin/sh", "-c", process.Spec.Command}
@@ -187,8 +190,43 @@ func secretDataToEnvMap(secretData map[string][]byte) map[string]string {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// TODO: should we filter events here?
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&cfappsv1alpha1.Process{}).
+		Watches(&source.Kind{Type: &cfappsv1alpha1.App{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
+			processList := &cfappsv1alpha1.ProcessList{}
+			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{"cf4k8s.cloudfoundry.org/appGuid": app.GetName()})
+			var requests []reconcile.Request
+
+			for _, process := range processList.Items {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      process.Name,
+						Namespace: process.Namespace,
+					},
+				})
+			}
+			return requests
+		})).
+		Watches(&source.Kind{Type: &cfappsv1alpha1.Droplet{}}, handler.EnqueueRequestsFromMapFunc(func(droplet client.Object) []reconcile.Request {
+			processList := &cfappsv1alpha1.ProcessList{}
+			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(droplet.GetNamespace()), client.MatchingLabels{"cf4k8s.cloudfoundry.org/appGuid": droplet.GetLabels()["cf4k8s.cloudfoundry.org/appGuid"]})
+			var requests []reconcile.Request
+
+			for _, process := range processList.Items {
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      process.Name,
+						Namespace: process.Namespace,
+					},
+				})
+			}
+			return requests
+		})).
 		Complete(r)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -12,11 +12,6 @@ spec:
     kind: App
     apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-app-guid
-  dropletRef:
-    kind: Droplet
-    apiVersion: apps.cloudfoundry.org/v1alpha1
-    name: kpack-droplet-guid
-  lifecycleType: kpack
   processType: web
   command: ""
   state: STARTED
@@ -31,7 +26,6 @@ spec:
   diskQuotaMB: 512
   ports:
     - 8080
-  envSecretName: my-app-guid-env
   sidecars:
     - name: authenticator
       command: bundle exec run-authenticator

@@ -53,23 +53,6 @@ spec:
                 description: Specifies the Process disk limit
                 format: int64
                 type: integer
-              dropletRef:
-                description: Specifies the Droplet info for the Process Denormalized from the App
-                properties:
-                  apiVersion:
-                    type: string
-                  kind:
-                    type: string
-                  name:
-                    type: string
-                required:
-                - apiVersion
-                - kind
-                - name
-                type: object
-              envSecretName:
-                description: Specifies the k8s secret name with the Process credentials and other private info Denormalized from the App
-                type: string
               healthCheck:
                 description: Specifies the Liveness Probe (k8s) details of the Process
                 properties:
@@ -103,12 +86,6 @@ spec:
               instances:
                 description: Specifies the number of Process replicas to deploy
                 type: integer
-              lifecycleType:
-                description: LifecycleType inform the platform of how to build droplets and run apps allow only values of "docker" and "kpack" - "buildpack" is only for cf-for-vms and is not supported
-                enum:
-                - docker
-                - kpack
-                type: string
               memoryMB:
                 description: Specifies the Process memory limit
                 format: int64
@@ -150,11 +127,8 @@ spec:
             required:
             - appRef
             - diskQuotaMB
-            - dropletRef
-            - envSecretName
             - healthCheck
             - instances
-            - lifecycleType
             - memoryMB
             - ports
             - processType
