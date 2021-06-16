@@ -32,8 +32,8 @@ spec:
           spec:
             description: AppSpec defines the desired state of App
             properties:
-              dropletRef:
-                description: Specifies the Droplet info for the app
+              currentDropletRef:
+                description: Specifies the Droplet info for the droplet that is currently assigned (active) for the app
                 properties:
                   apiVersion:
                     type: string
@@ -85,7 +85,7 @@ spec:
                 - kpack
                 type: string
             required:
-            - dropletRef
+            - currentDropletRef
             - envSecretName
             - lifecycle
             - name

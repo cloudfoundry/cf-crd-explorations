@@ -77,7 +77,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// fetch the Droplet to get the imageRef
 	droplet := new(cfappsv1alpha1.Droplet)
-	if err := r.Get(ctx, types.NamespacedName{Name: app.Spec.DropletRef.Name, Namespace: req.Namespace}, droplet); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: app.Spec.CurrentDropletRef.Name, Namespace: req.Namespace}, droplet); err != nil {
 		logger.Info(fmt.Sprintf("Error fetching droplet: %s", err))
 		return ctrl.Result{}, err
 	}

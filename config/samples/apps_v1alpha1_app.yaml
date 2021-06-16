@@ -15,7 +15,7 @@ spec:
       buildpacks: []
       stack: cflinuxfs3
   envSecretName: my-app-guid-env
-  dropletRef:
+  currentDropletRef:
     kind: Droplet
     apiVersion: apps.cloudfoundry.org/v1alpha1
     name: kpack-droplet-guid

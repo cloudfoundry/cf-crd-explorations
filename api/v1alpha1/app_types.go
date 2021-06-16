@@ -51,8 +51,8 @@ type AppSpec struct {
 	// Specifies the k8s secret name with the App credentials and other private info
 	EnvSecretName string `json:"envSecretName"`
 
-	// Specifies the Droplet info for the app
-	DropletRef DropletReference `json:"dropletRef"`
+	// Specifies the Droplet info for the droplet that is currently assigned (active) for the app
+	CurrentDropletRef DropletReference `json:"currentDropletRef"`
 }
 
 // AppStatus defines the observed state of App
