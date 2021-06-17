@@ -38,6 +38,7 @@ import (
 	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
 
 	"cloudfoundry.org/cf-crd-explorations/controllers"
+	"github.com/gorilla/mux"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -143,9 +144,11 @@ func main() {
 		appHandler := &handlers.AppHandler{
 			Client: mgr.GetClient(),
 		}
-		http.HandleFunc(handlers.GetAppEndpoint, appHandler.GetAppsHandler)
-		http.HandleFunc(handlers.AppsEndpoint, appHandler.AppGetListHandler)
-		log.Fatal(http.ListenAndServe(":81", nil))
+		myRouter := mux.NewRouter()
+		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.GetAppsHandler)
+		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.AppGetListHandler)
+		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.CreateAppsHandler).Methods("POST")
+		log.Fatal(http.ListenAndServe(":81", myRouter))
 	}()
 
 	setupLog.Info("starting manager")

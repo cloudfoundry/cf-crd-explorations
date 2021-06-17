@@ -177,3 +177,17 @@ func formatApp(app *appsv1alpha1.App) CFAPIAppResource {
 		},
 	}
 }
+
+func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
+
+	defer r.Body.Close()
+	var app *appsv1alpha1.App
+	json.NewDecoder(r.Body).Decode(app)
+
+	// TODOS
+	// talk to the kubeapi and create this object
+	err := a.Client.Create(context.Background(), app)
+	if err != nil {
+		fmt.Printf("error creating App object: %v\n", *app)
+	}
+}
