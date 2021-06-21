@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
+	"github.com/google/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,11 +27,11 @@ type AppHandler struct {
 	Client client.Client
 }
 
-// GetAppsHandler is for getting a single app from the guid
+// ShowAppHandler is for getting a single app from the guid
 // For now, only outputs the first match after searching ALL namespaces for Apps
 // GET /v3/apps/:guid -> is this namespace + guid?
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#get-an-app
-func (a *AppHandler) GetAppsHandler(w http.ResponseWriter, r *http.Request) {
+func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	// Remove the part of the app URL before the app guid
 	// apps/{blah}
 	appGUID := r.URL.Path[len(GetAppEndpoint):]
@@ -70,10 +72,10 @@ type GetListResponse struct {
 	Resources []CFAPIAppResource `json:"resources"`
 }
 
-// AppGetListHandler takes URL query parameters and sends a request to the Kuberentes API for the list of matching apps
+// ListAppsHandler takes URL query parameters and sends a request to the Kuberentes API for the list of matching apps
 // GET /v3/apps
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#list-apps
-func (a *AppHandler) AppGetListHandler(w http.ResponseWriter, r *http.Request) {
+func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	// queryParameters comes from the URL request
 	// it is a map of string to list of string
 	// map[string][]string
@@ -179,15 +181,51 @@ func formatApp(app *appsv1alpha1.App) CFAPIAppResource {
 }
 
 func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
-
 	defer r.Body.Close()
-	var app *appsv1alpha1.App
-	json.NewDecoder(r.Body).Decode(app)
+	// TODO create a new struct for CREATE requests that includes environment variables
+	var appRequest CFAPIAppResource
+	err := json.NewDecoder(r.Body).Decode(&appRequest)
+	if err != nil {
+		fmt.Printf("error parsing request: %s\n", err)
+		w.WriteHeader(400)
+	}
 
-	// TODOS
-	// talk to the kubeapi and create this object
-	err := a.Client.Create(context.Background(), app)
+	lifecycleType := appRequest.Lifecycle.Type
+	if lifecycleType == "" {
+		lifecycleType = "kpack"
+	}
+
+	// TODO if environment variables were provided, then create a secret for the app with those variables
+	// ... and also associate the secretName with the app below
+	app := &appsv1alpha1.App{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        uuid.NewString(),
+			Namespace:   appRequest.Relationships.Space.Data.GUID, // how do we ensure that the namespace exists?
+			Labels:      appRequest.Metadata.Labels,
+			Annotations: appRequest.Metadata.Annotations,
+		},
+		Spec: appsv1alpha1.AppSpec{
+			Name:  appRequest.Name,
+			State: "STOPPED",
+			Type:  appsv1alpha1.LifecycleType(lifecycleType),
+			Lifecycle: appsv1alpha1.Lifecycle{
+				Data: appsv1alpha1.LifecycleData{
+					Buildpacks: appRequest.Lifecycle.Data.Buildpacks,
+					Stack:      appRequest.Lifecycle.Data.Stack,
+				},
+			},
+		},
+	}
+
+	err = a.Client.Create(context.Background(), app)
 	if err != nil {
 		fmt.Printf("error creating App object: %v\n", *app)
+		w.WriteHeader(500)
 	}
+
+	// TODO fetch the app that was just created to get all of the API-populated fields like creation time
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	json.NewEncoder(w).Encode(formatApp(app))
 }

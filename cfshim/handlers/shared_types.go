@@ -6,7 +6,7 @@ type CFAPIAppResource struct {
 	State         string                  `json:"state"`
 	CreatedAt     string                  `json:"created_at"`
 	UpdatedAt     string                  `json:"updated_at"`
-	Lifecycle     CFAPIAppLifecycle       `json:"lifecycle"`
+	Lifecycle     CFAPIAppLifecycle       `json:"lifecycle,omitempty"`
 	Relationships CFAPIAppRelationships   `json:"relationships"`
 	Links         map[string]CFAPIAppLink `json:"links"`
 	Metadata      CFAPIMetadata           `json:"metadata"`
@@ -18,8 +18,8 @@ type CFAPIAppLifecycle struct {
 }
 
 type CFAPIAppLifecycleData struct {
-	Buildpacks []string `json:"buildpacks"`
-	Stack      string   `json:"stack"`
+	Buildpacks []string `json:"buildpacks,omitempty"`
+	Stack      string   `json:"stack,omitempty"`
 }
 
 type CFAPIAppRelationships struct {
