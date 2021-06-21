@@ -133,7 +133,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				Type:      string(process.Spec.HealthCheck.Type),
 				Port:      process.Spec.Ports[0],
 				Endpoint:  process.Spec.HealthCheck.Data.HTTPEndpoint,
-				TimeoutMs: uint(process.Spec.HealthCheck.Data.TimeoutSeconds),
+				TimeoutMs: uint(process.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
 			},
 			Ports:     process.Spec.Ports,
 			Instances: process.Spec.Instances,
@@ -194,7 +194,7 @@ func (r *ProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&cfappsv1alpha1.Process{}).
 		Watches(&source.Kind{Type: &cfappsv1alpha1.App{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
 			processList := &cfappsv1alpha1.ProcessList{}
-			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{"cf4k8s.cloudfoundry.org/appGuid": app.GetName()})
+			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{"apps.cloudfoundry.org/appGuid": app.GetName()})
 			var requests []reconcile.Request
 
 			for _, process := range processList.Items {
@@ -209,7 +209,7 @@ func (r *ProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		})).
 		Watches(&source.Kind{Type: &cfappsv1alpha1.Droplet{}}, handler.EnqueueRequestsFromMapFunc(func(droplet client.Object) []reconcile.Request {
 			processList := &cfappsv1alpha1.ProcessList{}
-			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(droplet.GetNamespace()), client.MatchingLabels{"cf4k8s.cloudfoundry.org/appGuid": droplet.GetLabels()["cf4k8s.cloudfoundry.org/appGuid"]})
+			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(droplet.GetNamespace()), client.MatchingLabels{"apps.cloudfoundry.org/appGuid": droplet.GetLabels()["apps.cloudfoundry.org/appGuid"]})
 			var requests []reconcile.Request
 
 			for _, process := range processList.Items {

@@ -4,8 +4,8 @@ kind: App
 metadata:
   name: my-app-guid
   labels:
-    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
-    cf4k8s.cloudfoundry.org/appName: my-app-name
+    apps.cloudfoundry.org/appGuid: my-app-guid
+    apps.cloudfoundry.org/appName: my-app-name
 spec:
   name: my-app-name
   state: STARTED

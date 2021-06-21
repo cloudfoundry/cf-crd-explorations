@@ -4,8 +4,8 @@ kind: Build
 metadata:
   name: build-guid
   labels:
-    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
-    cf4k8s.cloudfoundry.org/packageGuid: my-package-guid
+    apps.cloudfoundry.org/appGuid: my-app-guid
+    apps.cloudfoundry.org/packageGuid: my-package-guid
 spec:
   type: kpack
   packageRef:
@@ -22,8 +22,8 @@ spec:
     stack: cflinuxfs3
   kpackBuildSelector:
     matchLabels:
-      cf4k8s.cloudfoundry.org/buildGuid: build-guid
+      apps.cloudfoundry.org/buildGuid: build-guid
   kpackImageTemplate:
     metadata:
       labels:
-        cf4k8s.cloudfoundry.org/buildGuid: build-guid
+        apps.cloudfoundry.org/buildGuid: build-guid

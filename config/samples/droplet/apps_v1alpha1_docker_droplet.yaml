@@ -4,8 +4,8 @@ kind: Droplet
 metadata:
   name: docker-droplet-guid
   labels:
-    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
-    cf4k8s.cloudfoundry.org/buildGuid: my-build-guid
+    apps.cloudfoundry.org/appGuid: my-app-guid
+    apps.cloudfoundry.org/buildGuid: my-build-guid
 spec:
   type: docker
   appRef:

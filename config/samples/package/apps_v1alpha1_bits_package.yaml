@@ -4,7 +4,7 @@ kind: Package
 metadata:
   name: bits-package-guid
   labels:
-    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
+    apps.cloudfoundry.org/appGuid: my-app-guid
 spec:
   type: bits
   appRef:

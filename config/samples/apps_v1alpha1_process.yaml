@@ -4,9 +4,9 @@ kind: Process
 metadata:
   name: my-process-guid
   labels:
-    cf4k8s.cloudfoundry.org/appGuid: my-app-guid
-    cf4k8s.cloudfoundry.org/processGuid: my-process-guid
-    cf4k8s.cloudfoundry.org/processType: my-process-type
+    apps.cloudfoundry.org/appGuid: my-app-guid
+    apps.cloudfoundry.org/processGuid: my-process-guid
+    apps.cloudfoundry.org/processType: my-process-type
 spec:
   appRef:
     kind: App
