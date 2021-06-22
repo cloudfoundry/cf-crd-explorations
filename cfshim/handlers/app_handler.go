@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/gorilla/mux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
@@ -19,7 +20,7 @@ import (
 // Define the routes used in the REST endpoints
 const (
 	AppsEndpoint   = "/v3/apps"
-	GetAppEndpoint = AppsEndpoint + "/"
+	GetAppEndpoint = AppsEndpoint + "/{guid}"
 )
 
 type AppHandler struct {
@@ -32,9 +33,10 @@ type AppHandler struct {
 // GET /v3/apps/:guid -> is this namespace + guid?
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#get-an-app
 func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
-	// Remove the part of the app URL before the app guid
-	// apps/{blah}
-	appGUID := r.URL.Path[len(GetAppEndpoint):]
+	//Fetch the {guid} value from URL using gorilla mux
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
 	// map[string][]string
 	queryParameters := map[string][]string{
 		"guids": {appGUID},
