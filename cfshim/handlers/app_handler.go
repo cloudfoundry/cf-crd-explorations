@@ -55,6 +55,11 @@ func (a *AppHandler) GetAppsHandler(w http.ResponseWriter, r *http.Request) {
 		formattedApps = append(formattedApps, formatApp(app))
 	}
 
+	if len(formattedApps) < 1 {
+		// If no matches for the GUID, just return a 404
+		w.WriteHeader(404)
+		return
+	}
 	// Write MatchedApps to http ResponseWriter
 	w.Header().Set("Content-Type", "application/json")
 	// We are only printing the first element in the list for now ignoring cross-namespace guid collisions
