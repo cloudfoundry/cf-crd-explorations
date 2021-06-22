@@ -41,6 +41,22 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	queryParameters := map[string][]string{
 		"guids": {appGUID},
 	}
+
+	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
+	formattedApps, err := a.getAppHelper(queryParameters)
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
+	// Write MatchedApps to http ResponseWriter
+	w.Header().Set("Content-Type", "application/json")
+	// We are only printing the first element in the list for now ignoring cross-namespace guid collisions
+	json.NewEncoder(w).Encode(formattedApps[0])
+}
+
+//GetAppHelper is a helper function that takes a map of query parameters as input and return a list of matched apps.
+func (a *AppHandler) getAppHelper(queryParameters map[string][]string) ([]CFAPIAppResource, error) {
 	// use a helper function to break comma separated values into []string
 	formatQueryParams(queryParameters)
 
@@ -48,9 +64,8 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	matchedApps, err := a.getAppListFromQuery(queryParameters)
 	if err != nil {
 		// Print the error if K8s client fails
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "%v", err)
-		return
+		fmt.Printf("error fetching apps from query: %s\n", err)
+		return nil, err
 	}
 
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
@@ -68,6 +83,9 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// We are only printing the first element in the list for now ignoring cross-namespace guid collisions
 	json.NewEncoder(w).Encode(formattedApps[0])
+
+	return formattedApps, nil
+
 }
 
 type GetListResponse struct {
@@ -197,11 +215,14 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		lifecycleType = "kpack"
 	}
 
+	//generate new UUID for each create app request.
+	appGUID := uuid.NewString()
+
 	// TODO if environment variables were provided, then create a secret for the app with those variables
 	// ... and also associate the secretName with the app below
 	app := &appsv1alpha1.App{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        uuid.NewString(),
+			Name:        appGUID,
 			Namespace:   appRequest.Relationships.Space.Data.GUID, // how do we ensure that the namespace exists?
 			Labels:      appRequest.Metadata.Labels,
 			Annotations: appRequest.Metadata.Annotations,
@@ -225,9 +246,20 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 	}
 
-	// TODO fetch the app that was just created to get all of the API-populated fields like creation time
+	//reuse the getAppHelper method to fetch and return the app in the HTTP response.
+	queryParameters := map[string][]string{
+		"guids": {appGUID},
+	}
+
+	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
+	formattedApps, err := a.getAppHelper(queryParameters)
+	if err != nil {
+		fmt.Printf("error fecthing the created app: %s\n", err)
+		w.WriteHeader(500)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
-	json.NewEncoder(w).Encode(formatApp(app))
+	json.NewEncoder(w).Encode(formattedApps[0])
 }
