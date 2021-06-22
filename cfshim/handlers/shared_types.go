@@ -12,6 +12,11 @@ type CFAPIAppResource struct {
 	Metadata      CFAPIMetadata           `json:"metadata"`
 }
 
+type CFAPIAppResourceWithEnvVars struct {
+	CFAPIAppResource
+	EnvironmentVariables map[string]string `json:"environment_variables,omitempty"`
+}
+
 type CFAPIAppLifecycle struct {
 	Type string                `json:"type"`
 	Data CFAPIAppLifecycleData `json:"data"`

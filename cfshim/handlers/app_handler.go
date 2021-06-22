@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gorilla/mux"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
@@ -202,8 +203,8 @@ func formatApp(app *appsv1alpha1.App) CFAPIAppResource {
 
 func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	// TODO create a new struct for CREATE requests that includes environment variables
-	var appRequest CFAPIAppResource
+
+	var appRequest CFAPIAppResourceWithEnvVars
 	err := json.NewDecoder(r.Body).Decode(&appRequest)
 	if err != nil {
 		fmt.Printf("error parsing request: %s\n", err)
@@ -218,8 +219,27 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	//generate new UUID for each create app request.
 	appGUID := uuid.NewString()
 
-	// TODO if environment variables were provided, then create a secret for the app with those variables
-	// ... and also associate the secretName with the app below
+	var envSecret string
+
+	if len(appRequest.EnvironmentVariables) != 0 {
+		secretObj := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        appGUID + "-env",
+				Namespace:   appRequest.Relationships.Space.Data.GUID, // how do we ensure that the namespace exists?
+				Labels:      appRequest.Metadata.Labels,
+				Annotations: appRequest.Metadata.Annotations,
+			},
+			StringData: appRequest.EnvironmentVariables,
+		}
+		err = a.Client.Create(context.Background(), secretObj)
+		if err != nil {
+			fmt.Printf("error creating Secret object: %v\n", *secretObj)
+			w.WriteHeader(500)
+		}
+
+		envSecret = appGUID + "-env"
+	}
+
 	app := &appsv1alpha1.App{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        appGUID,
@@ -237,6 +257,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 					Stack:      appRequest.Lifecycle.Data.Stack,
 				},
 			},
+			EnvSecretName: envSecret,
 		},
 	}
 
@@ -244,6 +265,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Printf("error creating App object: %v\n", *app)
 		w.WriteHeader(500)
+		return
 	}
 
 	//reuse the getAppHelper method to fetch and return the app in the HTTP response.
