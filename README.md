@@ -58,10 +58,41 @@ curl -k -s -X PATCH -H "Accept: application/json, */*" \
 ```
 
 ### Interacting with the API
-To experiment with the CF API shim, you can...
+To experiment with the CF API shim, you can access the following endpoints and actions.
+
+|       ACTION       |        URL       |
+|--------------------|------------------|
+| **GET** / **POST** | `/v3/apps`       |
+| **GET** / **PUT**  | `/v3/apps/:guid` |
+| **POST**           | `/v3/packages`   |
+
+For example, you can get a list of applications with `http://localhost:81/v3/apps | jq .`
+
+#### Filtering Results
+The `/v3/apps` endpoint allows filtering.
 
 ```
-curl localhost:81/apps | jq .
+$ curl http://localhost:81/v3/apps?lifecycle_type=kpack
+$ curl http://localhost:81/v3/apps?names=my-app-name,<new spec.name>
+```
+
+Note: non-existent filter fields will not restrict results. In the case of a bogus filter, all results will be returned. We should discuss what our intended behavior is in the future.
+
+#### Creating or Updating Apps
+```
+curl "http://localhost:81/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
+  -X PUT \
+  -d '{"name":"my-app","lifecycle":{"type":"kpack","data":{"buildpacks":["java_buildpack","ruby"],"stack":"cflinuxfs3"}}}'
+```
+
+#### Creating Packages
+In order to create a docker Package, the associated App must be created first.
+
+```
+curl "http://localhost:81/v3/packages" \
+  -X POST \
+  -d '{"type":"docker","relationships":{"app":{"data":{"guid":"9f924342-472a-43a1-9db9-54beba5401e2"}}},"data":{"image":"registry/your-image:latest","username":"dockerusername","password":"dockerpassword"}}'
+
 ```
 
 ---
