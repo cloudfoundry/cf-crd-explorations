@@ -45,7 +45,7 @@ func (p *PackageHandler) getPackageHelper(queryParameters map[string][]string) (
 	return matchedPackages, nil
 }
 
-func (p *PackageHandler) ReturnFormattedResponse(w http.ResponseWriter, packageGUID string) {
+func (p *PackageHandler) ReturnFormattedResponse(w http.ResponseWriter, packageGUID string, username string) {
 
 	//reuse the getAppHelper method to fetch and return the app in the HTTP response.
 	queryParameters := map[string][]string{
@@ -63,15 +63,29 @@ func (p *PackageHandler) ReturnFormattedResponse(w http.ResponseWriter, packageG
 		return
 	}
 
+	formattedPackage := formatPackageResponse(matchedPackages[0], username)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
-	json.NewEncoder(w).Encode(matchedPackages[0])
+	json.NewEncoder(w).Encode(formattedPackage)
 }
 
-func formatPackageResponse(app *appsv1alpha1.Package) CFAPIPackageResource {
-	//TODO cast response data from type appsv1alpha.Package into type CFAPIPackageResource
-
-	return CFAPIPackageResource{}
+func formatPackageResponse(pk *appsv1alpha1.Package, username string) CFAPIPackageResource {
+	return CFAPIPackageResource{
+		Type: string(pk.Spec.Type),
+		Relationships: CFAPIPackageAppRelationships{
+			App: CFAPIPackageAppRelationshipsApp{
+				Data: CFAPIPackageAppRelationshipsAppData{
+					GUID: pk.Spec.AppRef.Name,
+				},
+			},
+		},
+		Data: CFAPIPackageData{
+			Image:    pk.Spec.SourceImage.Reference,
+			Username: username,
+			Password: "****",
+		},
+	}
 }
 
 func (p *PackageHandler) getAppHelper(queryParameters map[string][]string) ([]CFAPIAppResource, error) {
@@ -131,6 +145,8 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 	queryParams := map[string][]string{
 		"guid": {packageRequest.Relationships.App.Data.GUID},
 	}
+
+	// TODO What do we do when the app doesn't exist?
 	appResources, err := p.getAppHelper(queryParams)
 	if err != nil {
 		// Print the error if K8s client fails
@@ -179,5 +195,5 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	p.ReturnFormattedResponse(w, packageGUID)
+	p.ReturnFormattedResponse(w, packageGUID, packageRequest.Data.Username)
 }
