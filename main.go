@@ -144,10 +144,15 @@ func main() {
 		appHandler := &handlers.AppHandler{
 			Client: mgr.GetClient(),
 		}
+		packageHandler := &handlers.PackageHandler{
+			Client: mgr.GetClient(),
+		}
 		myRouter := mux.NewRouter()
-		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.ShowAppHandler)
+		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.ShowAppHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.ListAppsHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.CreateAppsHandler).Methods("POST")
+		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.UpdateAppsHandler).Methods("PUT")
+		myRouter.HandleFunc(handlers.PackageEndpoint, packageHandler.CreatePackageHandler).Methods("POST")
 		log.Fatal(http.ListenAndServe(":81", myRouter))
 	}()
 

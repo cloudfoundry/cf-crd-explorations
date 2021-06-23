@@ -50,6 +50,12 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(formattedApps) < 1 {
+		// If no matches for the GUID, just return a 404
+		w.WriteHeader(404)
+		return
+	}
+
 	// Write MatchedApps to http ResponseWriter
 	w.Header().Set("Content-Type", "application/json")
 	// We are only printing the first element in the list for now ignoring cross-namespace guid collisions
@@ -74,16 +80,6 @@ func (a *AppHandler) getAppHelper(queryParameters map[string][]string) ([]CFAPIA
 	for _, app := range matchedApps {
 		formattedApps = append(formattedApps, formatApp(app))
 	}
-
-	if len(formattedApps) < 1 {
-		// If no matches for the GUID, just return a 404
-		w.WriteHeader(404)
-		return
-	}
-	// Write MatchedApps to http ResponseWriter
-	w.Header().Set("Content-Type", "application/json")
-	// We are only printing the first element in the list for now ignoring cross-namespace guid collisions
-	json.NewEncoder(w).Encode(formattedApps[0])
 
 	return formattedApps, nil
 
@@ -267,6 +263,60 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		return
 	}
+
+	a.ReturnFormattedResponse(w, appGUID)
+}
+
+func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
+
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	queryParameters := map[string][]string{
+		"guids": {appGUID},
+	}
+	formatQueryParams(queryParameters)
+
+	var matchedApps []*appsv1alpha1.App
+
+	// Apply filter to AllApps and store result in matchedApps
+	matchedApps, err := a.getAppListFromQuery(queryParameters)
+	if err != nil {
+		// Print the error if K8s client fails
+		fmt.Printf("error fetching apps from query: %s\n", err)
+		w.WriteHeader(500)
+		return
+	}
+
+	var appRequest CFAPIAppResource
+	err = json.NewDecoder(r.Body).Decode(&appRequest)
+	if err != nil {
+		fmt.Printf("error parsing request: %s\n", err)
+		w.WriteHeader(400)
+	}
+
+	if appRequest.Name != "" {
+		matchedApps[0].Spec.Name = appRequest.Name
+	}
+
+	if &appRequest.Lifecycle != nil {
+		matchedApps[0].Spec.Lifecycle.Data = appsv1alpha1.LifecycleData{
+			Buildpacks: appRequest.Lifecycle.Data.Buildpacks,
+			Stack:      appRequest.Lifecycle.Data.Stack,
+		}
+	}
+
+	err = a.Client.Update(context.Background(), matchedApps[0])
+	if err != nil {
+		fmt.Printf("error updating App object: %v\n", *matchedApps[0])
+		w.WriteHeader(500)
+		return
+	}
+
+	a.ReturnFormattedResponse(w, appGUID)
+}
+
+func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, appGUID string) {
 
 	//reuse the getAppHelper method to fetch and return the app in the HTTP response.
 	queryParameters := map[string][]string{

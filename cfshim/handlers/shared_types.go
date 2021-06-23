@@ -48,3 +48,27 @@ type CFAPIMetadata struct {
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
 }
+
+type CFAPIPackageResource struct {
+	Type          string                       `json:"type"`
+	Relationships CFAPIPackageAppRelationships `json:"relationships"`
+	Data          CFAPIPackageData             `json:"data"`
+}
+
+type CFAPIPackageAppRelationships struct {
+	App CFAPIPackageAppRelationshipsApp `json:"app"`
+}
+
+type CFAPIPackageAppRelationshipsApp struct {
+	Data CFAPIPackageAppRelationshipsAppData `json:"data"`
+}
+
+type CFAPIPackageAppRelationshipsAppData struct {
+	GUID string `json:"guid"`
+}
+
+type CFAPIPackageData struct {
+	Image    string `json:"image"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
