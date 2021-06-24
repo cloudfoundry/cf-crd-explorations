@@ -201,10 +201,31 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var appRequest CFAPIAppResourceWithEnvVars
-	err := json.NewDecoder(r.Body).Decode(&appRequest)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	err := decoder.Decode(&appRequest)
 	if err != nil {
-		fmt.Printf("error parsing request: %s\n", err)
-		w.WriteHeader(400)
+		w.WriteHeader(422) // Assuming 422 even for malformed payloads
+		var cfErrors CFErrors
+
+		fmt.Printf("*********************** app request: %+v\n", &appRequest)
+		// Check if the error is from an unknown field
+		// TODO actually we should regex this string "json: unknown field \"<invalid key here>\""
+		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
+			cfErrors = CFErrors{
+				Errors: []CFError{
+					{
+						Detail: "Unknown field(s): 'invalid'", // TODO: How do we then validate that the require fields are provided?
+						Title:  "CF-UnprocessableEntity",
+						Code:   10008,
+					},
+				},
+			}
+
+		}
+
+		json.NewEncoder(w).Encode(cfErrors)
 	}
 
 	lifecycleType := appRequest.Lifecycle.Type
@@ -289,10 +310,23 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var appRequest CFAPIAppResource
-	err = json.NewDecoder(r.Body).Decode(&appRequest)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	err = decoder.Decode(&appRequest)
 	if err != nil {
-		fmt.Printf("error parsing request: %s\n", err)
-		w.WriteHeader(400)
+		fmt.Printf("error parsing request TTTTTT: %T\n", err)
+		fmt.Printf("error parsing request #vvvvvvvv: %#v\n", err)
+		w.WriteHeader(422)
+		cfErrors := CFErrors{
+			Errors: []CFError{
+				{
+					Detail: "idk yet",
+				},
+			},
+		}
+
+		json.NewEncoder(w).Encode(cfErrors)
 	}
 
 	if appRequest.Name != "" {

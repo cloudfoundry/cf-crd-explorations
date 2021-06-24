@@ -7,7 +7,7 @@ type CFAPIAppResource struct {
 	CreatedAt     string                  `json:"created_at"`
 	UpdatedAt     string                  `json:"updated_at"`
 	Lifecycle     CFAPIAppLifecycle       `json:"lifecycle,omitempty"`
-	Relationships CFAPIAppRelationships   `json:"relationships"`
+	Relationships CFAPIAppRelationships   `json:"relationships,required"`
 	Links         map[string]CFAPIAppLink `json:"links"`
 	Metadata      CFAPIMetadata           `json:"metadata"`
 }
@@ -71,4 +71,14 @@ type CFAPIPackageData struct {
 	Image    string `json:"image"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+}
+
+type CFErrors struct {
+	Errors []CFError `json:"errors"`
+}
+
+type CFError struct {
+	Detail string `json:"detail"`
+	Title  string `json:"title"`
+	Code   int    `json:"code"`
 }
