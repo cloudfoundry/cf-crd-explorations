@@ -13,6 +13,14 @@ This is just a sandbox for exploring how the V3 Cloud Foundry APIs might be back
 
 ## Trying it out
 
+### Cluster Pre-requisites
+
+* Eirini Controller installed ([instructions](https://github.com/cloudfoundry-incubator/eirini-controller/blob/master/README.md))
+* Kpack installed ([instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md))
+  * Follow the [kpack tutorial](https://github.com/pivotal/kpack/blob/main/docs/tutorial.md) for more information on how to set it up
+  * Sample kpack resources are available in `config/samples/kpack`
+
+
 ### Installation
 Clone this repo:
 ```
@@ -29,7 +37,31 @@ make install
 ### Running the API and controllers
 We currently don't support installing the API/controllers to the cluster, but you can run them locally against a targeting (via kubeconfig) K8s cluster
 
-The spike code converts Apps, Processes, and Droplets into Eirini LRP resources which requires the Eirini LRP controller to be deployed to the cluster. To do this, follow the [instructions in the eirini-controller repo](https://github.com/cloudfoundry-incubator/eirini-controller/blob/master/README.md).
+The spike code converts Apps, Processes, and Droplets into Eirini LRP resources which requires the Eirini LRP controller (see cluster pre-requisites above for information on how to install it).
+
+It also produces staged Droplets from Packages and Builds using Kpack. You will need to configure the `REGISTRY_TAG_BASE` environment variable to let the controller know where Kpack built images should be published.
+
+```
+# Example: export REGISTRY_TAG_BASE=gcr.io/cf-relint-greengrass
+export REGISTRY_TAG_BASE=<your-container-registry-here>
+```
+
+Then you will need to apply the sample kpack configuration:
+```
+kubectl apply -f config/samples/kpack/. --recursive
+```
+
+This config assumes you have added a `kubernetes.io/dockerconfigjson` secret named `kpack-registry-credentials` for interacting with the registry. Below is an example that uses a GCR service account:
+
+```
+kubectl create secret docker-registry kpack-registry-credentials \
+--docker-username="_json_key" \
+--docker-password="$(cat /path/to/service-account-key.json)" \
+--docker-server=gcr.io \
+--namespace default
+```
+
+To start the controller locally, run:
 
 ```
 make run
@@ -37,7 +69,7 @@ make run
 
 Apply sample instances of the resources.
 ```
-kubectl apply -f config/samples/. --recursive
+kubectl apply -f config/samples/cf-crds/. --recursive
 ```
 
 **Note:** If you want the sample app to be routable you must update the sample Route CR (config/samples/sample_app_route.yaml) to point to the configured apps domain for your environment. Since we're leveraging cf-for-k8s for its Eirini installation the easiest way to make the app routable is by using the existing cf-for-k8s RouteController and Route CR.

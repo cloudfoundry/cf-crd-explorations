@@ -16,8 +16,7 @@ spec:
     kind: Build
     apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-build-guid
-status:
-  image:
-    reference: "relintdockerhubpushbot/dora"
-    pullSecretName: ""
-  conditions: []
+  registry:
+    image: "gcr.io/cf-relint-greengrass/kpack-tutorial-demo-app-local"
+    imagePullSecrets:
+    - name: "kpack-registry-credentials"

@@ -52,8 +52,10 @@ type BuildStatus struct {
 	KpackImageReference KpackImageReference `json:"kpackImageRef,omitempty"`
 	// Contains a reference to the latest kpack build CRD for the kpack image (uses the kpackBuildSelector)
 	KpackBuildReference KpackBuildReference `json:"kpackBuildRef,omitempty"`
+
+	// TODO: figure out why omitempty behaves weird, seems like kubectl doesn't even represent internally with an empty slice
 	// Contains the current status of the build
-	Conditions []Condition `json:"conditions"`
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true

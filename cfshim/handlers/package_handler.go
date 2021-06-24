@@ -1,15 +1,16 @@
 package handlers
 
 import (
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -81,7 +82,7 @@ func formatPackageResponse(pk *appsv1alpha1.Package, username string) CFAPIPacka
 			},
 		},
 		Data: CFAPIPackageData{
-			Image:    pk.Spec.SourceImage.Reference,
+			Image:    pk.Spec.Source.Registry.Image,
 			Username: username,
 			Password: "****",
 		},
@@ -181,9 +182,13 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 			AppRef: appsv1alpha1.ApplicationReference{
 				Name: packageRequest.Relationships.App.Data.GUID,
 			},
-			SourceImage: appsv1alpha1.SourceImage{
-				Reference:      packageRequest.Data.Image,
-				PullSecretName: packageGUID + "-secret",
+			Source: appsv1alpha1.PackageSource{
+				Registry: appsv1alpha1.Registry{
+					Image: packageRequest.Data.Image,
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{Name: packageGUID + "-secret"},
+					},
+				},
 			},
 		},
 	}

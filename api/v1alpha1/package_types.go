@@ -37,8 +37,16 @@ type PackageSpec struct {
 	// Specifies the App that owns this package
 	AppRef ApplicationReference `json:"appRef"`
 
-	// Specifies the details for the docker image and registry for docker package flow
-	SourceImage SourceImage `json:"sourceImage,omitempty"`
+	// Contains the details for the source image(bits) or docker image(docker)
+	Source PackageSource `json:"source"`
+}
+
+type PackageSource struct {
+	// registry ( Source code is an OCI image in a registry that contains application source)
+	Registry Registry `json:"registry"`
+
+	// subPath: A subdirectory within the source folder where application code resides. Can be ignored if the source code resides at the root level.
+	SubPath string `json:"subPath,omitempty"`
 }
 
 // PackageType used to enum the inputs to package.type
@@ -50,26 +58,16 @@ const (
 	DockerPackage PackageType = "docker"
 )
 
-// SourceImage is used in both docker spec and the status for bit and docker package types
-type SourceImage struct {
-	Reference string `json:"reference"`
-	// This is the k8s secret that contains the details to pull the docker image
-	PullSecretName string `json:"pullSecretName,omitempty"`
-}
-
 // PackageStatus defines the observed state of Package
 type PackageStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Contains the packaged source code as a image
-	Image SourceImage `json:"image,omitempty"`
-
 	// Contains the checksum for the packaged source code image
 	Checksum Checksum `json:"checksum,omitempty"`
 
 	// Contains the current status of the package
-	Conditions []Condition `json:"conditions"`
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 //+kubebuilder:object:root=true

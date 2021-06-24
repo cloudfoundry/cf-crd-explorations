@@ -1,0 +1,20 @@
+apiVersion: kpack.io/v1alpha1
+kind: Builder
+metadata:
+  name: my-sample-builder
+  namespace: default
+spec:
+  serviceAccount: kpack-service-account
+  # Replace with real docker registry
+  tag: gcr.io/cf-relint-greengrass/cf-crd-staging-spike/akira/builder
+  stack:
+    name: base
+    kind: ClusterStack
+  store:
+    name: default
+    kind: ClusterStore
+  order:
+  - group:
+    - id: paketo-buildpacks/java
+  - group:
+    - id: paketo-buildpacks/nodejs

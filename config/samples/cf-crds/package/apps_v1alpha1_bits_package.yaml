@@ -1,0 +1,22 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Package
+metadata:
+  name: bits-package-guid
+  labels:
+    apps.cloudfoundry.org/appGuid: my-app-guid
+spec:
+  type: bits
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha1
+    name: my-app-guid
+  # This is a single layer OCI source code image for bits package
+  source:
+    registry:
+    # source images are weird, have to give a digest- latest doesn't work!
+      image: "gcr.io/cf-relint-greengrass/kpack-tutorial-demo-app-local-source@sha256:e6625936a413fc7ce1fdf13bb8d5b0299d1b8f59a2f2ccc6a577e6654f1b51b2"
+      imagePullSecrets:
+      - name: "kpack-registry-credentials"
+    # subPath is if your code is not at root directory in image for some reason
+    subPath: ""

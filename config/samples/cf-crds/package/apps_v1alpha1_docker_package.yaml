@@ -6,10 +6,13 @@ metadata:
     apps.cloudfoundry.org/appGuid: my-app-guid
 spec:
   type: docker
-  sourceImage:
-    reference: gcr.io/my-stuff/package-guid-source
-    pullSecretName: my-image-pull-secret
   appRef:
     kind: App
     apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-app-guid
+  # source is a runnable image in the docker case
+  source:
+    registry:
+      image: "relintdockerhubpushbot/kpack-tutorial-demo-app-3:tagname"
+      imagePullSecrets:
+      - name: "optional"

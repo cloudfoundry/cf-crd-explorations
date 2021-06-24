@@ -1,6 +1,8 @@
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+)
 
 // ApplicationReference defines App resource that owns to this Process
 type ApplicationReference struct {
@@ -62,25 +64,12 @@ const (
 	SHA1ChecksumType   = "sha1"
 )
 
-// +kubebuilder:validation:Enum=True;False;Unknown
-type ConditionStatus string
-
-const (
-	TrueConditionStatus    ConditionStatus = "True"
-	FalseConditionStatus   ConditionStatus = "False"
-	UnknownConditionStatus ConditionStatus = "Unknown"
-)
-
-// TODO: Double check that we are using the correct the condition type from kubernetes
-// Loosely following this KEP:
-// https://github.com/kubernetes/enhancements/tree/master/keps/sig-api-machinery/1623-standardize-conditions
-// Eventually we can update to use standard Kubernetes types
-type Condition struct {
-	Type               string          `json:"type"`
-	Status             ConditionStatus `json:"status"`
-	LastTransitionTime metav1.Time     `json:"lastTransitionTime"`
-	Reason             string          `json:"reason"`
-	Message            string          `json:"message"`
+// Registry is used by Package and Droplet to identify a Container Registry and secrets to access the image provided in "image"
+type Registry struct {
+	// image: Location of the source image
+	Image string `json:"image"`
+	// imagePullSecrets: A list of dockercfg or dockerconfigjson secret names required if the source image is private
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 // Shared by App Lifecycle and Build
@@ -92,6 +81,16 @@ type LifecycleData struct {
 	// Stack may be legacy from Diego, configured separately for kpack?
 	Stack string `json:"stack"`
 }
+
+// These constants are for metav1 Conditons in the K8s CR Status Conditions
+const (
+	// the CR is ready to be consumed- for build it means a droplet has been created
+	ReadyConditionType string = "Ready"
+	// the CR job has completed successfully- for build set to true when droplet is created
+	SucceededConditionType string = "Succeeded"
+	// the build is ongoing, used for kpack builds
+	StagingConditionType string = "Staging"
+)
 
 // LifecycleType inform the platform of how to build droplets and run apps
 // allow only values of "docker" and "kpack" - "buildpack" is only for cf-for-vms and is not supported

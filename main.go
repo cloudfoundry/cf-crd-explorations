@@ -37,7 +37,10 @@ import (
 	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
 
+	buildv1alpha1 "github.com/pivotal/kpack/pkg/apis/build/v1alpha1"
+
 	"cloudfoundry.org/cf-crd-explorations/controllers"
+	"cloudfoundry.org/cf-crd-explorations/settings"
 	"github.com/gorilla/mux"
 	//+kubebuilder:scaffold:imports
 )
@@ -51,12 +54,19 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(appsv1alpha1.AddToScheme(scheme))
-
+	utilruntime.Must(buildv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 func main() {
+	// initialize settings from env variables
+	loadedSettings, err := settings.Load()
+	if err != nil {
+		setupLog.Error(err, "error loading settings from environment")
+	}
+	settings.GlobalSettings = loadedSettings
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -128,6 +138,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "AppManifest")
 		os.Exit(1)
 	}
+	if err = (&controllers.CFKpackBuildReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "CFKpackBuildReconciler")
+		os.Exit(1)
+	}
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -153,7 +170,7 @@ func main() {
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.CreateAppsHandler).Methods("POST")
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.UpdateAppsHandler).Methods("PUT")
 		myRouter.HandleFunc(handlers.PackageEndpoint, packageHandler.CreatePackageHandler).Methods("POST")
-		log.Fatal(http.ListenAndServe(":81", myRouter))
+		log.Fatal(http.ListenAndServe(":9000", myRouter))
 	}()
 
 	setupLog.Info("starting manager")
