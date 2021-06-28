@@ -1,0 +1,76 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-validation-webhook
+  namespace: default
+  labels:
+    name: app-validation-webhook
+spec:
+  ports:
+    - name: webhook
+      port: 443
+      targetPort: 82
+  selector:
+    name: app-validation-webhook
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-validation-webhook
+  namespace: default
+  labels:
+    name: app-validation-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: app-validation-webhook
+  template:
+    metadata:
+      name: app-validation-webhook
+      labels:
+        name: app-validation-webhook
+    spec:
+      serviceAccountName: app-validation-webhook
+      containers:
+        - name: webhook
+          image: relintdockerhubpushbot/app-validation-webhook:1.15
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: webhook-certs
+              mountPath: /etc/certs
+              readOnly: true
+            - name: logs
+              mountPath: /tmp
+          securityContext:
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: webhook-certs
+          secret:
+            secretName: app-validation-webhook
+        - name: logs
+          emptyDir: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: app-validation-webhook
+webhooks:
+  - name: app-validation-webhook.annoying-antelope.k8s-dev.relint.rocks
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: app-validation-webhook
+        namespace: default
+        path: "/validate"
+      caBundle: "INSERT VALUE HERE"
+    rules:
+      - operations: ["CREATE"]
+        apiGroups: ["apps.cloudfoundry.org"]
+        apiVersions: ["v1alpha1"]
+        resources: ["apps"]
+    #Set failurePolicy to Fail for debugging. The default value is "Ignore"
+    failurePolicy: Fail
+    sideEffects: None

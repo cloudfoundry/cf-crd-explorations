@@ -1,0 +1,13 @@
+[req]
+distinguished_name = req_distinguished_name
+[ req_distinguished_name ]
+basicConstraints=CA:FALSE
+subjectAltName=@alt_names
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[ alt_names ]
+DNS.1 = app-validation-webhook
+DNS.2 = app-validation-webhook.default
+DNS.3 = app-validation-webhook.default.svc
+DNS.4 = app-validation-webhook.default.svc.cluster.local

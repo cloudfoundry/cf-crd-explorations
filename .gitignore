@@ -23,3 +23,11 @@ testbin/*
 *.swp
 *.swo
 *~
+
+# Ignore Certs directory and related cert files
+certs/*.pem
+certs/*.csr
+certs/*.key
+certs/*.srl
+certs/*.crt
+*.csr

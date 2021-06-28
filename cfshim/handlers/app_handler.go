@@ -201,31 +201,101 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var appRequest CFAPIAppResourceWithEnvVars
+	var errString []string
+	var cfErrors CFErrors
+
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
 	err := decoder.Decode(&appRequest)
-	if err != nil {
-		w.WriteHeader(422) // Assuming 422 even for malformed payloads
-		var cfErrors CFErrors
 
-		fmt.Printf("*********************** app request: %+v\n", &appRequest)
+	if err != nil {
 		// Check if the error is from an unknown field
-		// TODO actually we should regex this string "json: unknown field \"<invalid key here>\""
+		// TODO: This should be a regex such as:
+		// json: unknown field \"[a-zA-Z]+\"
+		// to report the exact unknown field
+		fmt.Printf("***************Err : %#v", err)
 		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
+			errString = append(errString, "Unknown field(s): 'invalid'")
+		} else {
+			fmt.Printf("error parsing request: %s\n", err)
+			errString = append(errString, "Request invalid due to parse error: invalid request body")
 			cfErrors = CFErrors{
 				Errors: []CFError{
 					{
-						Detail: "Unknown field(s): 'invalid'", // TODO: How do we then validate that the require fields are provided?
-						Title:  "CF-UnprocessableEntity",
-						Code:   10008,
+						Detail: strings.Join(errString, ","),
+						Title:  "CF-MessageParseError",
+						Code:   1001,
+					},
+				},
+			}
+			w.WriteHeader(400)
+			json.NewEncoder(w).Encode(cfErrors)
+			return
+		}
+
+	}
+	fmt.Printf("***************App request: %#v", appRequest.Relationships)
+	// Check for required fields here
+	// TODO: This should check each field since Relationships can error out in multiple ways.
+	// For now, we're just checking it exists to address Scenario 1
+	spaceguid := appRequest.Relationships.Space.Data.GUID
+	if spaceguid == "" {
+		errString = append(errString, "Relationships 'relationships' is not an object")
+	}
+
+	appname := appRequest.Name
+	if appname == "" {
+		errString = append(errString, "Name is a required entity")
+	} else {
+		queryParameters := map[string][]string{
+			"names": {appname},
+		}
+		formatQueryParams(queryParameters)
+
+		var matchedApps []*appsv1alpha1.App
+
+		// Apply filter to AllApps and store result in matchedApps
+		matchedApps, err := a.getAppListFromQuery(queryParameters)
+		if err != nil {
+			// Print the error if K8s client fails
+			fmt.Printf("error fetching apps from query: %s\n", err)
+			w.WriteHeader(500)
+			return
+		}
+		if len(matchedApps) > 0 {
+
+			errString = append(errString, fmt.Sprintf("App with the name '%s' already exists.", appname))
+			cfErrors = CFErrors{
+				Errors: []CFError{
+					{
+						Detail: strings.Join(errString, ", "),
+						Title:  "CF-UniquenessError",
+						Code:   10016,
 					},
 				},
 			}
 
+			w.WriteHeader(422)
+			json.NewEncoder(w).Encode(cfErrors)
+			return
+		}
+	}
+
+	if len(errString) > 0 {
+		cfErrors = CFErrors{
+			Errors: []CFError{
+				{
+					Detail: strings.Join(errString, ", "),
+					Title:  "CF-UnprocessableEntity",
+					Code:   10008,
+				},
+			},
 		}
 
+		w.WriteHeader(422)
 		json.NewEncoder(w).Encode(cfErrors)
+		return
 	}
 
 	lifecycleType := appRequest.Lifecycle.Type
@@ -310,23 +380,59 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var appRequest CFAPIAppResource
+	var errString []string
+	var cfErrors CFErrors
+	var errorTitle string
+	var errorCode int
+
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 
 	err = decoder.Decode(&appRequest)
+
 	if err != nil {
-		fmt.Printf("error parsing request TTTTTT: %T\n", err)
-		fmt.Printf("error parsing request #vvvvvvvv: %#v\n", err)
-		w.WriteHeader(422)
-		cfErrors := CFErrors{
+
+		// Check if the error is from an unknown field
+		// TODO: This should be a regex such as:
+		// json: unknown field \"[a-zA-Z]+\"
+		// to report the exact unknown field
+		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
+			errString = append(errString, "Unknown field(s): 'invalid'")
+			errorTitle = "CF-UnprocessableEntity"
+			errorCode = 10008
+			w.WriteHeader(422) // Assuming 422 even for malformed payloads
+		} else {
+			fmt.Printf("error parsing request TTTTTT: %T\n", err)
+			fmt.Printf("error parsing request #vvvvvvvv: %#v\n", err)
+			errString = append(errString, "Request invalid due to parse error: invalid request body")
+			errorTitle = "CF-MessageParseError"
+			errorCode = 1001
+			w.WriteHeader(422)
+			cfErrors := CFErrors{
+				Errors: []CFError{
+					{
+						Detail: "idk yet",
+					},
+				},
+			}
+
+			json.NewEncoder(w).Encode(cfErrors)
+		}
+	}
+
+	if len(errString) > 0 {
+		cfErrors = CFErrors{
 			Errors: []CFError{
 				{
-					Detail: "idk yet",
+					Detail: strings.Join(errString, ","),
+					Title:  errorTitle,
+					Code:   errorCode,
 				},
 			},
 		}
 
 		json.NewEncoder(w).Encode(cfErrors)
+		return
 	}
 
 	if appRequest.Name != "" {
