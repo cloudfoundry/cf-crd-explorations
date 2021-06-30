@@ -29,7 +29,7 @@ make install
 ### Running the API and controllers
 We currently don't support installing the API/controllers to the cluster, but you can run them locally against a targeting (via kubeconfig) K8s cluster
 
-The spike code converts Apps, Processes, and Droplets into Eirini LRP resources which requires the Eirini LRP controller to be deployed to the cluster. The simplest way to do this right now is to deploy cf-for-k8s to the cluster using the [eirini-controller-enabled branch](https://github.com/cloudfoundry/cf-for-k8s/tree/eirini-controller-enabled). Follow the standard cf-for-k8s installation steps to do so.
+The spike code converts Apps, Processes, and Droplets into Eirini LRP resources which requires the Eirini LRP controller to be deployed to the cluster. To do this, follow the [instructions in the eirini-controller repo](https://github.com/cloudfoundry-incubator/eirini-controller/blob/master/README.md).
 
 ```
 make run
@@ -66,7 +66,7 @@ To experiment with the CF API shim, you can access the following endpoints and a
 | **GET** / **PUT**  | `/v3/apps/:guid` |
 | **POST**           | `/v3/packages`   |
 
-For example, you can get a list of applications with `http://localhost:81/v3/apps | jq .`
+For example, you can get a list of applications by running `curl http://localhost:81/v3/apps | jq .`
 
 #### Filtering Results
 The `/v3/apps` endpoint allows filtering.
