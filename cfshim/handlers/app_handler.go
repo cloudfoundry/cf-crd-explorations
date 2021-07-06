@@ -3,12 +3,13 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"github.com/gorilla/mux"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"encoding/json"
 
@@ -402,8 +403,6 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 			errorCode = 10008
 			w.WriteHeader(422) // Assuming 422 even for malformed payloads
 		} else {
-			fmt.Printf("error parsing request TTTTTT: %T\n", err)
-			fmt.Printf("error parsing request #vvvvvvvv: %#v\n", err)
 			errString = append(errString, "Request invalid due to parse error: invalid request body")
 			errorTitle = "CF-MessageParseError"
 			errorCode = 1001
@@ -411,7 +410,9 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 			cfErrors := CFErrors{
 				Errors: []CFError{
 					{
-						Detail: "idk yet",
+						Detail: strings.Join(errString, ", "),
+						Code:   errorCode,
+						Title:  errorTitle,
 					},
 				},
 			}

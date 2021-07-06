@@ -7,7 +7,7 @@ type CFAPIAppResource struct {
 	CreatedAt     string                  `json:"created_at"`
 	UpdatedAt     string                  `json:"updated_at"`
 	Lifecycle     CFAPIAppLifecycle       `json:"lifecycle,omitempty"`
-	Relationships CFAPIAppRelationships   `json:"relationships,required"`
+	Relationships CFAPIAppRelationships   `json:"relationships"`
 	Links         map[string]CFAPIAppLink `json:"links"`
 	Metadata      CFAPIMetadata           `json:"metadata"`
 }
