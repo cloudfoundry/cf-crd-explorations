@@ -219,7 +219,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 			errStrings = append(errStrings, "Unknown field(s): 'invalid'")
 		} else {
 			fmt.Printf("error parsing request: %s\n", err)
-			a.ReturnFormattedError(w, 400, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
+			returnFormattedError(w, 400, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
 			return
 		}
 
@@ -254,14 +254,14 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		if len(matchedApps) > 0 {
 			errStrings = append(errStrings, fmt.Sprintf("App with the name '%s' already exists.", appname))
 			errorDetail := strings.Join(errStrings, ", ")
-			a.ReturnFormattedError(w, 422, "CF-UniquenessError", errorDetail, 10016)
+			returnFormattedError(w, 422, "CF-UniquenessError", errorDetail, 10016)
 			return
 		}
 	}
 
 	if len(errStrings) > 0 {
 		errorDetail := strings.Join(errStrings, ", ")
-		a.ReturnFormattedError(w, 422, "CF-UnprocessableEntity", errorDetail, 10008)
+		returnFormattedError(w, 422, "CF-UnprocessableEntity", errorDetail, 10008)
 		return
 	}
 
@@ -403,7 +403,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(errStrings) > 0 {
 		errorDetail := strings.Join(errStrings, ", ")
-		a.ReturnFormattedError(w, errorHeader, errorTitle, errorDetail, errorCode)
+		returnFormattedError(w, errorHeader, errorTitle, errorDetail, errorCode)
 		return
 	}
 
@@ -455,7 +455,7 @@ func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, appGUID stri
 	json.NewEncoder(w).Encode(formattedApps[0])
 }
 
-func (a *AppHandler) ReturnFormattedError(w http.ResponseWriter, status int, title string, detail string, code int) {
+func returnFormattedError(w http.ResponseWriter, status int, title string, detail string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(CFAPIErrors{

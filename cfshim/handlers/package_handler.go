@@ -4,19 +4,32 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"os"
+
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
+	"github.com/buildpacks/pack/pkg/archive"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/random"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
-	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Define the routes used in the REST endpoints
 const (
-	PackageEndpoint = "/v3/packages"
+	PackageEndpoint       = "/v3/packages"
+	UploadPackageEndpoint = "/v3/packages/{guid}/upload"
 )
 
 type PackageHandler struct {
@@ -204,4 +217,84 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	p.ReturnFormattedResponse(w, packageGUID, packageRequest.Data.Username)
+}
+
+// POST /v3/packages/:guid/upload
+// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#upload-package-bits
+func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	packageGuid := vars["guid"]
+
+	packageBitsFile, _, err := r.FormFile("bits")
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+	defer packageBitsFile.Close()
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("package-%s-", packageGuid))
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+	defer os.Remove(tmpFile.Name())
+
+	fmt.Println("Created tmp file: " + tmpFile.Name())
+
+	if _, err = io.Copy(tmpFile, packageBitsFile); err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	// Close the packageBitsFile
+	if err := tmpFile.Close(); err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	image, err := random.Image(0, 0)
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	noopFilter := func(string) bool { return true }
+	layer, err := tarball.LayerFromReader(archive.ReadZipAsTar(tmpFile.Name(), "/", 0, 0, -1, true, noopFilter))
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	image, err = mutate.AppendLayers(image, layer)
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	// TODO: Fetch these from Settings struct
+	registryBasePath := os.Getenv("REGISTRY_BASE_PATH")
+	registryUsername := os.Getenv("REGISTRY_USERNAME")
+	registryPassword := os.Getenv("REGISTRY_PASSWORD")
+
+	authenticator := authn.FromConfig(authn.AuthConfig{
+		Username: registryUsername,
+		Password: registryPassword,
+	})
+
+	ref, err := name.ParseReference(fmt.Sprintf("%s/%s", registryBasePath, packageGuid))
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	err = remote.Write(ref, image, remote.WithAuth(authenticator))
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	// TODO: Update Package CR on K8s
+	// Return response
+
+	return
 }
