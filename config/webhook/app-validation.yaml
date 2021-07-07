@@ -10,6 +10,7 @@ spec:
   ports:
     - name: webhook
       port: 443
+      # This is hardcoded in main.go for now
       targetPort: 82
   selector:
     name: app-validation-webhook
@@ -35,7 +36,7 @@ spec:
       serviceAccountName: app-validation-webhook
       containers:
         - name: webhook
-          image: relintdockerhubpushbot/app-validation-webhook:1.15
+          image: relintdockerhubpushbot/app-validation-webhook:dev
           imagePullPolicy: Always
           volumeMounts:
             - name: webhook-certs
@@ -57,7 +58,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: app-validation-webhook
 webhooks:
-  - name: app-validation-webhook.annoying-antelope.k8s-dev.relint.rocks
+  - name: app-validation-webhook.INSERT_APPS_DOMAIN_HERE
     admissionReviewVersions:
       - v1
     clientConfig:
@@ -65,7 +66,7 @@ webhooks:
         name: app-validation-webhook
         namespace: default
         path: "/validate"
-      caBundle: "INSERT VALUE HERE"
+      caBundle: "INSERT_CA_BUNDLE_VALUE_HERE"
     rules:
       - operations: ["CREATE"]
         apiGroups: ["apps.cloudfoundry.org"]

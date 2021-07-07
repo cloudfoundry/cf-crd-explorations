@@ -73,11 +73,11 @@ type CFAPIPackageData struct {
 	Password string `json:"password"`
 }
 
-type CFErrors struct {
-	Errors []CFError `json:"errors"`
+type CFAPIErrors struct {
+	Errors []CFAPIError `json:"errors"`
 }
 
-type CFError struct {
+type CFAPIError struct {
 	Detail string `json:"detail"`
 	Title  string `json:"title"`
 	Code   int    `json:"code"`

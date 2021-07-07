@@ -202,8 +202,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var appRequest CFAPIAppResourceWithEnvVars
-	var errString []string
-	var cfErrors CFErrors
+	var errStrings []string
 
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -217,21 +216,10 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		// to report the exact unknown field
 		fmt.Printf("***************Err : %#v", err)
 		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
-			errString = append(errString, "Unknown field(s): 'invalid'")
+			errStrings = append(errStrings, "Unknown field(s): 'invalid'")
 		} else {
 			fmt.Printf("error parsing request: %s\n", err)
-			errString = append(errString, "Request invalid due to parse error: invalid request body")
-			cfErrors = CFErrors{
-				Errors: []CFError{
-					{
-						Detail: strings.Join(errString, ","),
-						Title:  "CF-MessageParseError",
-						Code:   1001,
-					},
-				},
-			}
-			w.WriteHeader(400)
-			json.NewEncoder(w).Encode(cfErrors)
+			a.ReturnFormattedError(w, 400, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
 			return
 		}
 
@@ -242,12 +230,12 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	// For now, we're just checking it exists to address Scenario 1
 	spaceguid := appRequest.Relationships.Space.Data.GUID
 	if spaceguid == "" {
-		errString = append(errString, "Relationships 'relationships' is not an object")
+		errStrings = append(errStrings, "Relationships 'relationships' is not an object")
 	}
 
 	appname := appRequest.Name
 	if appname == "" {
-		errString = append(errString, "Name is a required entity")
+		errStrings = append(errStrings, "Name is a required entity")
 	} else {
 		queryParameters := map[string][]string{
 			"names": {appname},
@@ -265,37 +253,16 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(matchedApps) > 0 {
-
-			errString = append(errString, fmt.Sprintf("App with the name '%s' already exists.", appname))
-			cfErrors = CFErrors{
-				Errors: []CFError{
-					{
-						Detail: strings.Join(errString, ", "),
-						Title:  "CF-UniquenessError",
-						Code:   10016,
-					},
-				},
-			}
-
-			w.WriteHeader(422)
-			json.NewEncoder(w).Encode(cfErrors)
+			errStrings = append(errStrings, fmt.Sprintf("App with the name '%s' already exists.", appname))
+			errorDetail := strings.Join(errStrings, ", ")
+			a.ReturnFormattedError(w, 422, "CF-UniquenessError", errorDetail, 10016)
 			return
 		}
 	}
 
-	if len(errString) > 0 {
-		cfErrors = CFErrors{
-			Errors: []CFError{
-				{
-					Detail: strings.Join(errString, ", "),
-					Title:  "CF-UnprocessableEntity",
-					Code:   10008,
-				},
-			},
-		}
-
-		w.WriteHeader(422)
-		json.NewEncoder(w).Encode(cfErrors)
+	if len(errStrings) > 0 {
+		errorDetail := strings.Join(errStrings, ", ")
+		a.ReturnFormattedError(w, 422, "CF-UnprocessableEntity", errorDetail, 10008)
 		return
 	}
 
@@ -381,9 +348,9 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var appRequest CFAPIAppResource
-	var errString []string
-	var cfErrors CFErrors
+	var errStrings []string
 	var errorTitle string
+	var errorHeader int
 	var errorCode int
 
 	decoder := json.NewDecoder(r.Body)
@@ -398,41 +365,21 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		// json: unknown field \"[a-zA-Z]+\"
 		// to report the exact unknown field
 		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
-			errString = append(errString, "Unknown field(s): 'invalid'")
+			errStrings = append(errStrings, "Unknown field(s): 'invalid'")
 			errorTitle = "CF-UnprocessableEntity"
 			errorCode = 10008
-			w.WriteHeader(422) // Assuming 422 even for malformed payloads
+			errorHeader = 422 // Assuming 422 even for malformed payloads
 		} else {
-			errString = append(errString, "Request invalid due to parse error: invalid request body")
+			errStrings = append(errStrings, "Request invalid due to parse error: invalid request body")
 			errorTitle = "CF-MessageParseError"
 			errorCode = 1001
-			w.WriteHeader(422)
-			cfErrors := CFErrors{
-				Errors: []CFError{
-					{
-						Detail: strings.Join(errString, ", "),
-						Code:   errorCode,
-						Title:  errorTitle,
-					},
-				},
-			}
-
-			json.NewEncoder(w).Encode(cfErrors)
+			errorHeader = 422
 		}
 	}
 
-	if len(errString) > 0 {
-		cfErrors = CFErrors{
-			Errors: []CFError{
-				{
-					Detail: strings.Join(errString, ","),
-					Title:  errorTitle,
-					Code:   errorCode,
-				},
-			},
-		}
-
-		json.NewEncoder(w).Encode(cfErrors)
+	if len(errStrings) > 0 {
+		errorDetail := strings.Join(errStrings, ", ")
+		a.ReturnFormattedError(w, errorHeader, errorTitle, errorDetail, errorCode)
 		return
 	}
 
@@ -475,4 +422,18 @@ func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, appGUID stri
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	json.NewEncoder(w).Encode(formattedApps[0])
+}
+
+func (a *AppHandler) ReturnFormattedError(w http.ResponseWriter, status int, title string, detail string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(CFAPIErrors{
+		Errors: []CFAPIError{
+			{
+				Title:  title,
+				Detail: detail,
+				Code:   code,
+			},
+		},
+	})
 }

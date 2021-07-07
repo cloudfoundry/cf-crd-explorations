@@ -11,6 +11,10 @@ This is just a sandbox for exploring how the V3 Cloud Foundry APIs might be back
 * [V3 Cloud Foundry API Docs](https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html)
 * [Initial High-level Design Board](https://miro.com/app/board/o9J_lFiI8CU=/)
 
+## Component Index
+- [CRD Installation](#installation)
+- [Webhook Installation](webhooks/README.md)
+
 ## Trying it out
 
 ### Installation
@@ -21,7 +25,7 @@ git clone git@github.com:cloudfoundry/cf-crd-explorations.git
 cd cf-crd-explorations/
 ```
 
-Deploy CRs to K8s in current Kubernetes context
+Deploy CRDs to K8s in current Kubernetes context
 ```
 make install
 ```

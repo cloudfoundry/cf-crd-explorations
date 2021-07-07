@@ -1,17 +1,19 @@
 package validate
 
 import (
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"net/http"
+
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 )
 
 /*
@@ -70,7 +72,11 @@ func (a *AppValidator) AppValidation(w http.ResponseWriter, r *http.Request) {
 	err := a.KubeClient.List(context.Background(), AllApps)
 
 	if err != nil {
-		fmt.Errorf("error fetching app: %v", err)
+		w.WriteHeader(http.StatusInternalServerError) // What should the error be?
+		errorMessage := fmt.Sprintf("error fetching app: %v\n", err)
+		json.NewEncoder(w).Encode(errorMessage)
+		fmt.Printf(errorMessage)
+		return
 	}
 
 	fmt.Printf("******************** Fetching all Apps in default namespace %v", AllApps)
@@ -86,10 +92,15 @@ func (a *AppValidator) AppValidation(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("matched apps : %v", matchedApps)
 
+	var arResponseAllowed bool = false
+	var arResponseResult *metav1.Status = nil
+
 	if len(matchedApps) == 0 {
-		//just returning works here
-		//also an other option would be to return AdmissionResponse with Allowed set to true
-		return
+		arResponseAllowed = true
+	} else {
+		arResponseResult = &metav1.Status{
+			Message: "App with the name already exists!",
+		}
 	}
 
 	arResponse := v1.AdmissionReview{
@@ -99,23 +110,21 @@ func (a *AppValidator) AppValidation(w http.ResponseWriter, r *http.Request) {
 		},
 		Response: &v1.AdmissionResponse{
 			UID:     arRequest.Request.UID,
-			Allowed: false,
-			Result: &metav1.Status{
-				Message: "App with the name already exists!",
-			},
+			Allowed: arResponseAllowed,
+			Result:  arResponseResult,
 		},
 	}
 
 	resp, err := json.Marshal(&arResponse)
 	if err != nil {
-		fmt.Println("Can't encode response: %v", err)
+		fmt.Printf("Can't encode response: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(fmt.Sprintf("could not encode response: %v", err))
 		return
 	}
 	fmt.Printf("Ready to write reponse ...: %v \n", string(resp))
 	if _, err := w.Write(resp); err != nil {
-		fmt.Println("Can't write response: %v", err)
+		fmt.Printf("Can't write response: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(fmt.Sprintf("could not write response: %v", err))
 		return
