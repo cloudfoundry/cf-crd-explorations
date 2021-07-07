@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -9,13 +10,13 @@ import (
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"encoding/json"
+	"k8s.io/client-go/rest"
 
 	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -37,7 +38,7 @@ type AppHandler struct {
 // GET /v3/apps/:guid
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#get-an-app
 func (a *AppHandler) GetAppHandler(w http.ResponseWriter, r *http.Request) {
-	//Fetch the {guid} value from URL using gorilla mux
+	// Fetch the {guid} value from URL using gorilla mux
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
@@ -73,6 +74,26 @@ type GetListResponse struct {
 // GET /v3/apps
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#list-apps
 func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
+	config := ctrl.GetConfigOrDie()
+	config = rest.AnonymousClientConfig(config)
+	authHeader := r.Header.Get("Authorization")
+	if authHeader != "" {
+		config.BearerToken = strings.Split(authHeader, "bearer ")[1]
+	}
+
+	fmt.Printf("config.BearerToken = \"%s\"\n", config.BearerToken)
+
+	var err error
+	a.Client, err = client.New(config, client.Options{
+		Scheme: a.Client.Scheme(),
+		Mapper: a.Client.RESTMapper(),
+	})
+	if err != nil {
+		w.WriteHeader(500)
+		fmt.Fprintf(w, "%v", err)
+		return
+	}
+
 	// queryParameters comes from the URL request
 	// it is a map of string to list of string
 	// map[string][]string
@@ -100,7 +121,6 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(GetListResponse{
 		Resources: formattedApps,
 	})
-
 }
 
 func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
@@ -126,7 +146,6 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 			ReturnFormattedError(w, 400, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
 			return
 		}
-
 	}
 	// Check for required fields here
 	// TODO: This should check each field since Relationships can error out in multiple ways.
@@ -195,7 +214,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//generate new UUID for each create app request.
+	// generate new UUID for each create app request.
 	appGUID := uuid.NewString()
 
 	// Add labels for apps.cloudfoundry.org/appGuid: my-app-guid
@@ -257,7 +276,6 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
-
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 
@@ -294,7 +312,6 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	err = decoder.Decode(&appRequest)
 
 	if err != nil {
-
 		// Check if the error is from an unknown field
 		// TODO: This should be a regex such as:
 		// json: unknown field \"[a-zA-Z]+\"
@@ -364,7 +381,6 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
-
 	var matchedApps []*cfappsv1alpha1.App
 	var dropletRequest CFAPIAppRelationshipsDroplet
 	var errorMessage string
@@ -494,7 +510,7 @@ func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *cfappsv
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#start-an-app
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#stop-an-app
 func (a *AppHandler) SetAppDesiredStateHandler(w http.ResponseWriter, r *http.Request) {
-	//Fetch the {guid} value from URL using gorilla mux
+	// Fetch the {guid} value from URL using gorilla mux
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
 	action := vars["action"]
