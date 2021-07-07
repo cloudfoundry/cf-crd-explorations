@@ -72,3 +72,13 @@ type CFAPIPackageData struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
+
+type CFAPIErrors struct {
+	Errors []CFAPIError `json:"errors"`
+}
+
+type CFAPIError struct {
+	Detail string `json:"detail"`
+	Title  string `json:"title"`
+	Code   int    `json:"code"`
+}

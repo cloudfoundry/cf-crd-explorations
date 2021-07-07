@@ -3,12 +3,13 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"github.com/gorilla/mux"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"encoding/json"
 
@@ -201,10 +202,68 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var appRequest CFAPIAppResourceWithEnvVars
-	err := json.NewDecoder(r.Body).Decode(&appRequest)
+	var errStrings []string
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	err := decoder.Decode(&appRequest)
+
 	if err != nil {
-		fmt.Printf("error parsing request: %s\n", err)
-		w.WriteHeader(400)
+		// Check if the error is from an unknown field
+		// TODO: This should be a regex such as:
+		// json: unknown field \"[a-zA-Z]+\"
+		// to report the exact unknown field
+		fmt.Printf("***************Err : %#v", err)
+		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
+			errStrings = append(errStrings, "Unknown field(s): 'invalid'")
+		} else {
+			fmt.Printf("error parsing request: %s\n", err)
+			a.ReturnFormattedError(w, 400, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
+			return
+		}
+
+	}
+	fmt.Printf("***************App request: %#v", appRequest.Relationships)
+	// Check for required fields here
+	// TODO: This should check each field since Relationships can error out in multiple ways.
+	// For now, we're just checking it exists to address Scenario 1
+	spaceguid := appRequest.Relationships.Space.Data.GUID
+	if spaceguid == "" {
+		errStrings = append(errStrings, "Relationships 'relationships' is not an object")
+	}
+
+	appname := appRequest.Name
+	if appname == "" {
+		errStrings = append(errStrings, "Name is a required entity")
+	} else {
+		queryParameters := map[string][]string{
+			"names": {appname},
+		}
+		formatQueryParams(queryParameters)
+
+		var matchedApps []*appsv1alpha1.App
+
+		// Apply filter to AllApps and store result in matchedApps
+		matchedApps, err := a.getAppListFromQuery(queryParameters)
+		if err != nil {
+			// Print the error if K8s client fails
+			fmt.Printf("error fetching apps from query: %s\n", err)
+			w.WriteHeader(500)
+			return
+		}
+		if len(matchedApps) > 0 {
+			errStrings = append(errStrings, fmt.Sprintf("App with the name '%s' already exists.", appname))
+			errorDetail := strings.Join(errStrings, ", ")
+			a.ReturnFormattedError(w, 422, "CF-UniquenessError", errorDetail, 10016)
+			return
+		}
+	}
+
+	if len(errStrings) > 0 {
+		errorDetail := strings.Join(errStrings, ", ")
+		a.ReturnFormattedError(w, 422, "CF-UnprocessableEntity", errorDetail, 10008)
+		return
 	}
 
 	lifecycleType := appRequest.Lifecycle.Type
@@ -289,10 +348,39 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var appRequest CFAPIAppResource
-	err = json.NewDecoder(r.Body).Decode(&appRequest)
+	var errStrings []string
+	var errorTitle string
+	var errorHeader int
+	var errorCode int
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+
+	err = decoder.Decode(&appRequest)
+
 	if err != nil {
-		fmt.Printf("error parsing request: %s\n", err)
-		w.WriteHeader(400)
+
+		// Check if the error is from an unknown field
+		// TODO: This should be a regex such as:
+		// json: unknown field \"[a-zA-Z]+\"
+		// to report the exact unknown field
+		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
+			errStrings = append(errStrings, "Unknown field(s): 'invalid'")
+			errorTitle = "CF-UnprocessableEntity"
+			errorCode = 10008
+			errorHeader = 422 // Assuming 422 even for malformed payloads
+		} else {
+			errStrings = append(errStrings, "Request invalid due to parse error: invalid request body")
+			errorTitle = "CF-MessageParseError"
+			errorCode = 1001
+			errorHeader = 422
+		}
+	}
+
+	if len(errStrings) > 0 {
+		errorDetail := strings.Join(errStrings, ", ")
+		a.ReturnFormattedError(w, errorHeader, errorTitle, errorDetail, errorCode)
+		return
 	}
 
 	if appRequest.Name != "" {
@@ -334,4 +422,18 @@ func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, appGUID stri
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	json.NewEncoder(w).Encode(formattedApps[0])
+}
+
+func (a *AppHandler) ReturnFormattedError(w http.ResponseWriter, status int, title string, detail string, code int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(CFAPIErrors{
+		Errors: []CFAPIError{
+			{
+				Title:  title,
+				Detail: detail,
+				Code:   code,
+			},
+		},
+	})
 }
