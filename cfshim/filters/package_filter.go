@@ -19,7 +19,7 @@ func (p *PackageFilter) Filter(input interface{}) bool {
 	}
 	//fmt.Printf("AppFilter cast to App successful: %v", *app)
 
-	// Take the URL input list and compare to the field in the App K8s CR Object
+	// Take the URL input list and compare to the field in the Package K8s CR Object
 	if !queryParameterMatches(p.QueryParameters["guids"], pk.ObjectMeta.Name) {
 		return false
 	}

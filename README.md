@@ -84,6 +84,13 @@ Note: non-existent filter fields will not restrict results. In the case of a bog
 
 #### Creating or Updating Apps
 ```
+curl "http://localhost:81/v3/apps" \
+  -X POST \
+  -d '{"name":"my-app","relationships":{"space":{"data":{"guid":"cf-workloads"}}}}'
+```
+
+
+```
 curl "http://localhost:81/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
   -X PUT \
   -d '{"name":"my-app","lifecycle":{"type":"kpack","data":{"buildpacks":["java_buildpack","ruby"],"stack":"cflinuxfs3"}}}'
