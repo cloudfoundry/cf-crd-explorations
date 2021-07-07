@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller-manager-service
+  # TODO: Kustomize prefixes the system namespace with 'cf-crd-explorations-'
+  # We should figure out how to ensure this is prefixed automatically.
+  namespace: cf-crd-explorations-system
+  labels:
+    control-plane: controller-manager
+spec:
+  selector:
+    control-plane: controller-manager
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
+  type: LoadBalancer
+  loadBalancerIP: "34.133.168.50"

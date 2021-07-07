@@ -162,3 +162,23 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - kpack.io
+  resources:
+  - builds
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kpack.io
+  resources:
+  - images
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

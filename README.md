@@ -38,8 +38,10 @@ Deploy CRDs to K8s in current Kubernetes context
 make install
 ```
 
-### Running the API and controllers
-We currently don't support installing the API/controllers to the cluster, but you can run them locally against a targeting (via kubeconfig) K8s cluster
+## Running the API and controllers
+
+### Running locally
+Run controllers locally against a targeting (via kubeconfig) K8s cluster
 
 The spike code converts Apps, Processes, and Droplets into Eirini LRP resources which requires the Eirini LRP controller (see cluster pre-requisites above for information on how to install it).
 
@@ -78,7 +80,18 @@ kubectl apply -f config/samples/cf-crds/. --recursive
 
 **Note:** If you want the sample app to be routable you must update the sample Route CR (config/samples/sample_app_route.yaml) to point to the configured apps domain for your environment. Since we're leveraging cf-for-k8s for its Eirini installation the easiest way to make the app routable is by using the existing cf-for-k8s RouteController and Route CR.
 
-#### Manually update the ImageRef on the sample Droplet
+### Run on Cluster
+
+The deployment spec for the controller will need to have the `REGISTRY_TAG_BASE` env var set in order for the controller to understand where to publish images. See: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+
+As when deploying locally, kpack will need to be configured and have a secret created.
+
+To deploy to a cluster, run:
+```
+make deploy
+```
+
+### Manually update the ImageRef on the sample Droplet
 Since we do not have a spike implementation of staging or a Droplets Controller at this time (we expect to do this in https://github.com/cloudfoundry/cf-crd-explorations/issues/6), we have to manually set the image on the sample Droplet. To do this you must 
 
 1. `kubectl proxy &`
@@ -149,8 +162,3 @@ curl "http://localhost:81/v3/packages" \
 ```
 make manifests
 ```
-
-**NOTE:**
-
-This will generate a file called `cf-crd-explorations/config/crd/bases/apps.cloudfoundry.org_buildren.yaml` with kubebuilder 3.1.0 you need to modify this file and rename it for the proper plural of build -> -buildren- builds to appear in K8s.
-Refer to `cf-crd-explorations/config/crd/bases/apps.cloudfoundry.org_builds.yaml` for an example.

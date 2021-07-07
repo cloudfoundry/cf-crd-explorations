@@ -25,12 +25,19 @@ spec:
       securityContext:
         runAsNonRoot: true
       containers:
+      # TODO: If we use Pack to build this image, the start command provided here will not work.
       - command:
         - /manager
         args:
         - --leader-elect
         image: controller:latest
         name: manager
+        ports:
+        - containerPort: 9000
+          protocol: TCP
+        env:
+        - name: REGISTRY_TAG_BASE
+          value: "gcr.io/cf-relint-greengrass"
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
