@@ -18,6 +18,7 @@ This is just a sandbox for exploring how the V3 Cloud Foundry APIs might be back
 ## Trying it out
 
 ### Cluster Pre-requisites
+The below requirements can be installed with the `./hack/install-dependencies.sh` script. It takes a flag to a gcr json key with a `-g` or `--gcr-service-account-json` flag, which specifies the file location of a gcr json key.
 
 * Eirini Controller installed ([instructions](https://github.com/cloudfoundry-incubator/eirini-controller/blob/master/README.md))
 * Kpack installed ([instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md))
