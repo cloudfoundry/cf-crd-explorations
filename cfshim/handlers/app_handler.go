@@ -16,6 +16,8 @@ import (
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"github.com/google/uuid"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,7 +49,7 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
 	formattedApps, err := a.getAppHelper(queryParameters)
 	if err != nil {
-		w.WriteHeader(500)
+		a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -105,8 +107,8 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	matchedApps, err := a.getAppListFromQuery(queryParameters)
 	if err != nil {
 		// Print the error if K8s client fails
-		w.WriteHeader(500)
-		fmt.Fprintf(w, "%v", err)
+		fmt.Printf("Error matching app: %v", err)
+		a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -141,7 +143,6 @@ func (a *AppHandler) getAppListFromQuery(queryParameters map[string][]string) ([
 
 	// Apply filter to AllApps and store result in matchedApps
 	var matchedApps []*appsv1alpha1.App
-	fmt.Printf("%v\n", matchedApps)
 	for i, _ := range AllApps.Items {
 		if filter.Filter(&AllApps.Items[i]) {
 			matchedApps = append(matchedApps, &AllApps.Items[i])
@@ -150,7 +151,7 @@ func (a *AppHandler) getAppListFromQuery(queryParameters map[string][]string) ([
 	return matchedApps, nil
 }
 
-// formatQueryParams takes a map of string query parameters and splits any entires with commas in them in-place
+// formatQueryParams takes a map of string query parameters and splits any entries with commas in them in-place
 func formatQueryParams(queryParams map[string][]string) {
 	for key, value := range queryParams {
 		var newParamsList []string
@@ -200,6 +201,7 @@ func formatApp(app *appsv1alpha1.App) CFAPIAppResource {
 
 func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
+	ctx := context.Background()
 
 	var appRequest CFAPIAppResourceWithEnvVars
 	var errStrings []string
@@ -208,13 +210,11 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	decoder.DisallowUnknownFields()
 
 	err := decoder.Decode(&appRequest)
-
 	if err != nil {
 		// Check if the error is from an unknown field
 		// TODO: This should be a regex such as:
 		// json: unknown field \"[a-zA-Z]+\"
 		// to report the exact unknown field
-		fmt.Printf("***************Err : %#v", err)
 		if strings.Compare(err.Error(), "json: unknown field \"invalid\"") == 0 {
 			errStrings = append(errStrings, "Unknown field(s): 'invalid'")
 		} else {
@@ -224,7 +224,6 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	fmt.Printf("***************App request: %#v", appRequest.Relationships)
 	// Check for required fields here
 	// TODO: This should check each field since Relationships can error out in multiple ways.
 	// For now, we're just checking it exists to address Scenario 1
@@ -271,25 +270,46 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		lifecycleType = "kpack"
 	}
 
+	lifecycleData := appRequest.Lifecycle.Data
+	if lifecycleType == "kpack" && lifecycleData.Stack == "" {
+		lifecycleData.Stack = "cflinuxfs3" // TODO: This is the default in CF for VMs. What should the default stack be here?
+	}
+	if lifecycleType == "kpack" && len(lifecycleData.Buildpacks) == 0 {
+		lifecycleData.Buildpacks = []string{}
+	}
+
+	// Check if the namespace in the request exitsts
+	space := &corev1.Namespace{}
+	err = a.Client.Get(ctx, types.NamespacedName{Name: appRequest.Relationships.Space.Data.GUID}, space)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			a.ReturnFormattedError(w, 404, "NotFound", err.Error(), 10000)
+		} else {
+			fmt.Printf("error fetching Namespace object: %v\n", *space)
+			a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		}
+		return
+	}
+
 	//generate new UUID for each create app request.
 	appGUID := uuid.NewString()
 
+	// Create app secrets if environment variables are provided
 	var envSecret string
-
 	if len(appRequest.EnvironmentVariables) != 0 {
 		secretObj := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        appGUID + "-env",
-				Namespace:   appRequest.Relationships.Space.Data.GUID, // how do we ensure that the namespace exists?
+				Namespace:   appRequest.Relationships.Space.Data.GUID,
 				Labels:      appRequest.Metadata.Labels,
 				Annotations: appRequest.Metadata.Annotations,
 			},
 			StringData: appRequest.EnvironmentVariables,
 		}
-		err = a.Client.Create(context.Background(), secretObj)
+		err = a.Client.Create(ctx, secretObj)
 		if err != nil {
 			fmt.Printf("error creating Secret object: %v\n", *secretObj)
-			w.WriteHeader(500)
+			a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		}
 
 		envSecret = appGUID + "-env"
@@ -298,7 +318,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	app := &appsv1alpha1.App{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        appGUID,
-			Namespace:   appRequest.Relationships.Space.Data.GUID, // how do we ensure that the namespace exists?
+			Namespace:   appRequest.Relationships.Space.Data.GUID,
 			Labels:      appRequest.Metadata.Labels,
 			Annotations: appRequest.Metadata.Annotations,
 		},
@@ -308,17 +328,17 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 			Type:  appsv1alpha1.LifecycleType(lifecycleType),
 			Lifecycle: appsv1alpha1.Lifecycle{
 				Data: appsv1alpha1.LifecycleData{
-					Buildpacks: appRequest.Lifecycle.Data.Buildpacks,
-					Stack:      appRequest.Lifecycle.Data.Stack,
+					Buildpacks: lifecycleData.Buildpacks,
+					Stack:      lifecycleData.Stack,
 				},
 			},
 			EnvSecretName: envSecret,
 		},
 	}
 
-	err = a.Client.Create(context.Background(), app)
+	err = a.Client.Create(ctx, app)
 	if err != nil {
-		fmt.Printf("error creating App object: %v\n", *app)
+		fmt.Printf("error creating App object: %v\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -344,6 +364,10 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		// Print the error if K8s client fails
 		fmt.Printf("error fetching apps from query: %s\n", err)
 		w.WriteHeader(500)
+		return
+	} else if len(matchedApps) == 0 {
+		fmt.Printf("no matched apps for guid: %s\n", appGUID)
+		w.WriteHeader(404)
 		return
 	}
 
@@ -387,16 +411,23 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		matchedApps[0].Spec.Name = appRequest.Name
 	}
 
-	if &appRequest.Lifecycle != nil {
-		matchedApps[0].Spec.Lifecycle.Data = appsv1alpha1.LifecycleData{
-			Buildpacks: appRequest.Lifecycle.Data.Buildpacks,
-			Stack:      appRequest.Lifecycle.Data.Stack,
-		}
+	var buildpacks []string
+	stack := "cflinuxfs3"
+	if len(appRequest.Lifecycle.Data.Buildpacks) == 0 {
+		buildpacks = []string{}
+	}
+	if appRequest.Lifecycle.Data.Stack != "" {
+		stack = appRequest.Lifecycle.Data.Stack
+	}
+
+	matchedApps[0].Spec.Lifecycle.Data = appsv1alpha1.LifecycleData{
+		Buildpacks: buildpacks,
+		Stack:      stack,
 	}
 
 	err = a.Client.Update(context.Background(), matchedApps[0])
 	if err != nil {
-		fmt.Printf("error updating App object: %v\n", *matchedApps[0])
+		fmt.Printf("error updating App object: %v\n", err)
 		w.WriteHeader(500)
 		return
 	}

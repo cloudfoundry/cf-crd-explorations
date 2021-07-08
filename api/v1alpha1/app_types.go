@@ -41,12 +41,12 @@ type AppSpec struct {
 	// Valid values are:
 	// "docker": run prebuilt docker image
 	// "kpack": stage the app using kpack
-	Type LifecycleType `json:"type"`
+	Type LifecycleType `json:"type,omitempty"`
 
 	// Specifies how to build droplets and run apps
 	// container for list of buildpacks and stack to build them
 	// for docker this is empty
-	Lifecycle Lifecycle `json:"lifecycle"`
+	Lifecycle Lifecycle `json:"lifecycle,omitempty"`
 
 	// Specifies the k8s secret name with the App credentials and other private info
 	EnvSecretName string `json:"envSecretName"`

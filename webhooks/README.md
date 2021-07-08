@@ -12,7 +12,6 @@ Here you will find instructions for setting up and deploying the validation webh
 #### Generate Certificates
 ```
 ./hack/generate_certs.sh
-echo $CA_BUNDLE | pbcopy
 ```
 
 Substitute the value for "caBundle" key in `./config/webhook/app-validation.yaml`

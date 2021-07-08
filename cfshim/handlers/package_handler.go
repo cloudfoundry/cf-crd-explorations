@@ -1,15 +1,16 @@
 package handlers
 
 import (
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,10 +55,7 @@ func (p *PackageHandler) ReturnFormattedResponse(w http.ResponseWriter, packageG
 
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
 	matchedPackages, err := p.getPackageHelper(queryParameters)
-
-	//formattedPackages := formatPackageResponse(matchedPackages[0])
-
-	if err != nil {
+	if err != nil || len(matchedPackages) == 0 {
 		fmt.Printf("error fecthing the created package: %s\n", err)
 		w.WriteHeader(500)
 		return
@@ -143,10 +141,9 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 		w.WriteHeader(400)
 	}
 	queryParams := map[string][]string{
-		"guid": {packageRequest.Relationships.App.Data.GUID},
+		"guids": {packageRequest.Relationships.App.Data.GUID},
 	}
 
-	// TODO What do we do when the app doesn't exist?
 	appResources, err := p.getAppHelper(queryParams)
 	if err != nil {
 		// Print the error if K8s client fails
@@ -154,6 +151,13 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 		fmt.Fprintf(w, "Failed to get the App namespace %v", err)
 		return
 	}
+
+	if len(appResources) == 0 {
+		w.WriteHeader(422)
+		fmt.Fprintf(w, "Failed to create package as App does not exist")
+		return
+	}
+
 	namespace := appResources[0].Relationships.Space.Data.GUID
 
 	packageGUID := uuid.NewString()
