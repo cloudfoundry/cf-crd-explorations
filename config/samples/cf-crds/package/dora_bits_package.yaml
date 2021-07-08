@@ -1,0 +1,22 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Package
+metadata:
+  name: dora-bits-package-guid
+  labels:
+    apps.cloudfoundry.org/appGuid: my-app-guid
+spec:
+  type: bits
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha1
+    name: my-app-guid
+  # This is a single layer OCI source code image for bits package
+  source:
+    registry:
+    # source images are weird, have to give a digest- latest doesn't work!
+      image: "gcr.io/cf-relint-greengrass/cf-crd-staging-spike/dora-local-source@sha256:1adeb27348bc95c77b73cfdd7181c785a11acab70f9c9ff3c845d7a3ee5c6ed0"
+      imagePullSecrets:
+      - name: "kpack-registry-credentials"
+    # subPath is if your code is not at root directory in image for some reason
+    subPath: ""

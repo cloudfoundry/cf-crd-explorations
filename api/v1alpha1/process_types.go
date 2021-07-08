@@ -107,7 +107,7 @@ type ProcessSidecar struct {
 type ProcessStatus struct {
 	Instances int64 `json:"instances"`
 
-	Conditions []Condition `json:"conditions"`
+	Conditions []metav1.Condition `json:"conditions"`
 
 	// TODO: Open question: Should this be flexible and use the "latestImage" duck type to
 	// allow for easier handling of stack updates in the background or should it be closer

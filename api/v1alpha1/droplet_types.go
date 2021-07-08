@@ -36,6 +36,9 @@ type DropletSpec struct {
 
 	// Specifies the Build associated with this Droplet
 	BuildRef BuildReference `json:"buildRef"`
+
+	// Specifies the Container registry image, and secrets to access
+	Registry Registry `json:"registry,omitempty"`
 }
 
 type Image struct {
@@ -47,7 +50,6 @@ type Image struct {
 type DropletStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Image Image `json:"image,omitempty"`
 
 	// TODO: Open question: Should this be flexible and use the "latestImage" duck type to
 	// allow for easier handling of stack updates in the background or should it be closer
@@ -58,7 +60,7 @@ type DropletStatus struct {
 	LifecycleData DockerLifecycleData `json:"lifecycleData,omitempty"`
 
 	// Describes the conditions of the Droplet
-	Conditions []Condition `json:"conditions"`
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 type DockerLifecycleData struct {

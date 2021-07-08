@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -118,7 +119,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			OrgGUID:     "TBD",
 			SpaceName:   "TBD",
 			SpaceGUID:   "TBD",
-			Image:       droplet.Status.Image.Reference,
+			Image:       droplet.Spec.Registry.Image,
 			Command:     commandForProcess(process, app),
 			Sidecars:    nil,
 			// TODO: Used for Docker images?

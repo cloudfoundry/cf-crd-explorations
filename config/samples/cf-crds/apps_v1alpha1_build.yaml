@@ -5,21 +5,25 @@ metadata:
   name: build-guid
   labels:
     apps.cloudfoundry.org/appGuid: my-app-guid
-    apps.cloudfoundry.org/packageGuid: my-package-guid
+    apps.cloudfoundry.org/packageGuid: kpack-package-guid
 spec:
+  # TODO: should this be buildpack?
   type: kpack
   packageRef:
     kind: Package
     apiVersion: apps.cloudfoundry.org/v1alpha1
-    name: package-guid
+    name: bits-package-guid
   appRef:
     kind: App
     apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-app-guid
   lifecycleData:
+    # TODO: Write a story to think about how user-specified buildpacks work
+    # cf-for-k8s makes a new builder per app
     buildpacks:
       - java_buildpack
     stack: cflinuxfs3
+  # TODO: Do we even need these? Should we use them?
   kpackBuildSelector:
     matchLabels:
       apps.cloudfoundry.org/buildGuid: build-guid

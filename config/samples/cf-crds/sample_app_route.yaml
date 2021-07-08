@@ -1,8 +1,6 @@
 apiVersion: networking.cloudfoundry.org/v1alpha1
 kind: Route
 metadata:
-  finalizers:
-    - routes.networking.cloudfoundry.org
   labels:
     app.kubernetes.io/component: cf-networking
     app.kubernetes.io/managed-by: cf-crd-explorations

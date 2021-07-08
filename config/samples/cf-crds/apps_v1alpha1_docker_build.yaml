@@ -1,0 +1,19 @@
+---
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: Build
+metadata:
+  name: docker-build-guid
+  labels:
+    apps.cloudfoundry.org/appGuid: my-app-guid
+    apps.cloudfoundry.org/packageGuid: docker-package-guid
+spec:
+  # TODO: should this be buildpack?
+  type: docker
+  packageRef:
+    kind: Package
+    apiVersion: apps.cloudfoundry.org/v1alpha1
+    name: docker-package-guid
+  appRef:
+    kind: App
+    apiVersion: apps.cloudfoundry.org/v1alpha1
+    name: my-app-guid

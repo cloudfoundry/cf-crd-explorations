@@ -79,7 +79,7 @@ func formatPackageResponse(pk *appsv1alpha1.Package, username string) CFAPIPacka
 			},
 		},
 		Data: CFAPIPackageData{
-			Image:    pk.Spec.SourceImage.Reference,
+			Image:    pk.Spec.Source.Registry.Image,
 			Username: username,
 			Password: "****",
 		},
@@ -185,9 +185,13 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 			AppRef: appsv1alpha1.ApplicationReference{
 				Name: packageRequest.Relationships.App.Data.GUID,
 			},
-			SourceImage: appsv1alpha1.SourceImage{
-				Reference:      packageRequest.Data.Image,
-				PullSecretName: packageGUID + "-secret",
+			Source: appsv1alpha1.PackageSource{
+				Registry: appsv1alpha1.Registry{
+					Image: packageRequest.Data.Image,
+					ImagePullSecrets: []corev1.LocalObjectReference{
+						{Name: packageGUID + "-secret"},
+					},
+				},
 			},
 		},
 	}
