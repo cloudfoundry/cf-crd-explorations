@@ -84,11 +84,25 @@ kubectl apply -f config/samples/cf-crds/. --recursive
 
 The deployment spec for the controller will need to have the `REGISTRY_TAG_BASE` env var set in order for the controller to understand where to publish images. See: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
 
-As when deploying locally, kpack will need to be configured and have a secret created.
+As when deploying locally, kpack and Eirini will need to be configured and deployed.
 
-To deploy to a cluster, run:
+If code changes are made, the controller manager image will also need to be built and pushed to a registry via the make commands.
+```
+make docker-build
+make docker-push
+```
+
+
+To deploy to the controller manager to the cluster, run:
 ```
 make deploy
+```
+
+In order to access the API shim, you need to configure a service such as `config/supporting-objects/service.yaml`. Once configured, you can curl the available endpoints.
+
+For example:
+```
+curl LB_IP/v3/apps/
 ```
 
 ### Manually update the ImageRef on the sample Droplet
@@ -115,28 +129,28 @@ To experiment with the CF API shim, you can access the following endpoints and a
 | **GET** / **PUT**  | `/v3/apps/:guid` |
 | **POST**           | `/v3/packages`   |
 
-For example, you can get a list of applications by running `curl http://localhost:81/v3/apps | jq .`
+For example, you can get a list of applications by running `curl http://localhost:9000/v3/apps | jq .`
 
 #### Filtering Results
 The `/v3/apps` endpoint allows filtering.
 
 ```
-$ curl http://localhost:81/v3/apps?lifecycle_type=kpack
-$ curl http://localhost:81/v3/apps?names=my-app-name,<new spec.name>
+$ curl http://localhost:9000/v3/apps?lifecycle_type=kpack
+$ curl http://localhost:9000/v3/apps?names=my-app-name,<new spec.name>
 ```
 
 Note: non-existent filter fields will not restrict results. In the case of a bogus filter, all results will be returned. We should discuss what our intended behavior is in the future.
 
 #### Creating or Updating Apps
 ```
-curl "http://localhost:81/v3/apps" \
+curl "http://localhost:9000/v3/apps" \
   -X POST \
   -d '{"name":"my-app","relationships":{"space":{"data":{"guid":"cf-workloads"}}}}'
 ```
 
 
 ```
-curl "http://localhost:81/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
+curl "http://localhost:9000/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
   -X PUT \
   -d '{"name":"my-app","lifecycle":{"type":"kpack","data":{"buildpacks":["java_buildpack","ruby"],"stack":"cflinuxfs3"}}}'
 ```
@@ -145,7 +159,7 @@ curl "http://localhost:81/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
 In order to create a docker Package, the associated App must be created first.
 
 ```
-curl "http://localhost:81/v3/packages" \
+curl "http://localhost:9000/v3/packages" \
   -X POST \
   -d '{"type":"docker","relationships":{"app":{"data":{"guid":"9f924342-472a-43a1-9db9-54beba5401e2"}}},"data":{"image":"registry/your-image:latest","username":"dockerusername","password":"dockerpassword"}}'
 

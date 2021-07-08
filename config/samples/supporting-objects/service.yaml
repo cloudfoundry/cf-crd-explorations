@@ -13,7 +13,9 @@ spec:
     control-plane: controller-manager
   ports:
     - protocol: TCP
-      port: 9000
+      port: 80
       targetPort: 9000
+  # Type LoadBalancer works for most IaaS. This will not work for Kind/Minikube and should be changed to NodePort.
   type: LoadBalancer
-  loadBalancerIP: "34.133.168.50"
+  # If you are using a static or pre-allocated IP, uncomment below and provide your IP.
+  # loadBalancerIP: INSERT_LB_IP

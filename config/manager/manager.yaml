@@ -30,7 +30,9 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: controller:latest
+        image: cloudfoundry/cf-crd-explorations:latest
+        # This policy works well for Kind when used with `kind load docker-image cloudfoundry/cf-crd-explorations:latest`
+        # imagePullPolicy: Never
         name: manager
         ports:
         - containerPort: 9000
