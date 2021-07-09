@@ -49,7 +49,7 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
 	formattedApps, err := a.getAppHelper(queryParameters)
 	if err != nil {
-		a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Print the error if K8s client fails
 		fmt.Printf("Error matching app: %v", err)
-		a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -283,10 +283,10 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	err = a.Client.Get(ctx, types.NamespacedName{Name: appRequest.Relationships.Space.Data.GUID}, space)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			a.ReturnFormattedError(w, 404, "NotFound", err.Error(), 10000)
+			returnFormattedError(w, 404, "NotFound", err.Error(), 10000)
 		} else {
 			fmt.Printf("error fetching Namespace object: %v\n", *space)
-			a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+			returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		}
 		return
 	}
@@ -309,7 +309,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		err = a.Client.Create(ctx, secretObj)
 		if err != nil {
 			fmt.Printf("error creating Secret object: %v\n", *secretObj)
-			a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+			returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		}
 
 		envSecret = appGUID + "-env"

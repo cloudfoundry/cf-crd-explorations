@@ -1,15 +1,11 @@
 package handlers
 
 import (
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
+	"cloudfoundry.org/cf-crd-explorations/settings"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"os"
-
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"github.com/buildpacks/pack/pkg/archive"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -19,6 +15,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"io"
+	"io/ioutil"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
@@ -103,7 +104,7 @@ func (p *PackageHandler) getAppHelper(queryParameters map[string][]string) ([]CF
 	// use a helper function to break comma separated values into []string
 	formatQueryParams(queryParameters)
 
-	// Apply filter to AllApps and store result in matchedApps
+	// Apply filter to AllPackages and store result in matchedApps
 	matchedApps, err := p.getAppListFromQuery(queryParameters)
 	if err != nil {
 		// Print the error if K8s client fails
@@ -126,19 +127,19 @@ func (p *PackageHandler) getAppListFromQuery(queryParameters map[string][]string
 		QueryParameters: queryParameters,
 	}
 
-	// Get all the CF Apps from K8s API store in AllApps which contains Items: []App
-	AllApps := &appsv1alpha1.AppList{}
-	err := p.Client.List(context.Background(), AllApps)
+	// Get all the CF Apps from K8s API store in AllPackages which contains Items: []App
+	AllPackages := &appsv1alpha1.AppList{}
+	err := p.Client.List(context.Background(), AllPackages)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching app: %v", err)
 	}
 
-	// Apply filter to AllApps and store result in matchedApps
+	// Apply filter to AllPackages and store result in matchedApps
 	var matchedApps []*appsv1alpha1.App
 	fmt.Printf("%v\n", matchedApps)
-	for i, _ := range AllApps.Items {
-		if filter.Filter(&AllApps.Items[i]) {
-			matchedApps = append(matchedApps, &AllApps.Items[i])
+	for i, _ := range AllPackages.Items {
+		if filter.Filter(&AllPackages.Items[i]) {
+			matchedApps = append(matchedApps, &AllPackages.Items[i])
 		}
 	}
 	return matchedApps, nil
@@ -224,6 +225,15 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	packageGuid := vars["guid"]
+	ctx := r.Context()
+
+	packages, err := p.getPackagesListFromQuery(map[string][]string{
+		"guids": {packageGuid},
+	})
+	if len(packages) == 0 {
+		returnFormattedError(w, 404, "NotFound", "", 10000)
+	}
+	pkg := packages[0]
 
 	packageBitsFile, _, err := r.FormFile("bits")
 	if err != nil {
@@ -271,15 +281,11 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// TODO: Fetch these from Settings struct
-	registryBasePath := os.Getenv("REGISTRY_BASE_PATH")
-	registryUsername := os.Getenv("REGISTRY_USERNAME")
-	registryPassword := os.Getenv("REGISTRY_PASSWORD")
-
 	authenticator := authn.FromConfig(authn.AuthConfig{
-		Username: registryUsername,
-		Password: registryPassword,
+		Username: settings.GlobalSettings.PackageRegistryUsername,
+		Password: settings.GlobalSettings.PackageRegistryPassword,
 	})
+	registryBasePath := settings.GlobalSettings.PackageRegistryTagBase
 
 	ref, err := name.ParseReference(fmt.Sprintf("%s/%s", registryBasePath, packageGuid))
 	if err != nil {
@@ -293,8 +299,65 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// TODO: Update Package CR on K8s
-	// Return response
+	updatedPkg := pkg.DeepCopy()
+	// TODO: Update Package CR spec on K8s
+	updatedPkg.Spec.Source = appsv1alpha1.PackageSource{
+		Registry: appsv1alpha1.Registry{
+			Image:            ref.Name(),
+			ImagePullSecrets: nil, // TODO: What goes here? Maybe take this secret name as a config?
+		},
+	}
+	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
+		Type:               "Succeeded",
+		Status:             metav1.ConditionTrue,
+		Reason:             "Uploaded",
+		Message:            "",
+	})
+	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
+		Type:               "Ready",
+		Status:             metav1.ConditionTrue,
+		Reason:             "Uploaded",
+		Message:            "",
+	})
+	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
+		Type:               "Uploaded",
+		Status:             metav1.ConditionTrue,
+		Reason:             "Uploaded",
+		Message:            "",
+	})
+	err = p.Client.Patch(ctx, updatedPkg, client.MergeFrom(pkg))
+	if err != nil {
+		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	// TODO: Return response
+	// Probably punting on this until the GET /v3/packages/:guid endpoint is implemented
 
 	return
+}
+
+// getPackageListFromQuery takes URL query parameters and queries the K8s Client for all Packages
+// builds a filter based on params and walks through, placing every match into the returned list of Packages
+// returns an error if something went wrong with the K8s query
+func (p *PackageHandler) getPackagesListFromQuery(queryParameters map[string][]string) ([]*appsv1alpha1.Package, error) {
+	var filter Filter = &filters.PackageFilter{
+		QueryParameters: queryParameters,
+	}
+
+	// Get all the CF Apps from K8s API store in AllPackages which contains Items: []App
+	AllPackages := &appsv1alpha1.PackageList{}
+	err := p.Client.List(context.Background(), AllPackages)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching app: %v", err)
+	}
+
+	// Apply filter to AllPackages and store result in matchedPackages
+	var matchedPackages []*appsv1alpha1.Package
+	for i, _ := range AllPackages.Items {
+		if filter.Filter(&AllPackages.Items[i]) {
+			matchedPackages = append(matchedPackages, &AllPackages.Items[i])
+		}
+	}
+	return matchedPackages, nil
 }
