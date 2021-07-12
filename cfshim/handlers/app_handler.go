@@ -34,7 +34,7 @@ type AppHandler struct {
 
 // ShowAppHandler is for getting a single app from the guid
 // For now, only outputs the first match after searching ALL namespaces for Apps
-// GET /v3/apps/:guid -> is this namespace + guid?
+// GET /v3/apps/:guid
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#get-an-app
 func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	//Fetch the {guid} value from URL using gorilla mux
