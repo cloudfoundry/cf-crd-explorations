@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"cloudfoundry.org/cf-crd-explorations/settings"
 	"context"
@@ -17,23 +18,22 @@ import (
 	"github.com/gorilla/mux"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"net/http"
-	"os"
-	"time"
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 // Define the routes used in the REST endpoints
 const (
 	PackageEndpoint       = "/v3/packages"
 	UploadPackageEndpoint = "/v3/packages/{guid}/upload"
-	GetPackageEndpoint = PackageEndpoint + "/{guid}"
+	GetPackageEndpoint    = PackageEndpoint + "/{guid}"
 )
 
 type PackageHandler struct {
@@ -448,10 +448,14 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// TODO: Return response
 	// Probably punting on this until the GET /v3/packages/:guid endpoint is implemented
+	// NOTE : based on knowledge shared by Birdrock about CREATE writing to etcd and GET/LIST reading from cache, which\
+	//		  can result in cache miss should it be sufficient to return the updated object itself rather than\
+	// 		  invoking the GET/LIST?
 
-	return
+	formattedMatchingPackage := formatPresenterPackageResponse(updatedPkg)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(formattedMatchingPackage)
 }
 
 // getPackageListFromQuery takes URL query parameters and queries the K8s Client for all Packages
