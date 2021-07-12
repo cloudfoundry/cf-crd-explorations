@@ -49,7 +49,7 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
 	formattedApps, err := a.getAppHelper(queryParameters)
 	if err != nil {
-		a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Print the error if K8s client fails
 		fmt.Printf("Error matching app: %v", err)
-		a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -219,7 +219,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 			errStrings = append(errStrings, "Unknown field(s): 'invalid'")
 		} else {
 			fmt.Printf("error parsing request: %s\n", err)
-			a.ReturnFormattedError(w, 400, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
+			ReturnFormattedError(w, 400, "CF-MessageParseError", "Request invalid due to parse error: invalid request body", 1001)
 			return
 		}
 
@@ -254,14 +254,14 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		if len(matchedApps) > 0 {
 			errStrings = append(errStrings, fmt.Sprintf("App with the name '%s' already exists.", appname))
 			errorDetail := strings.Join(errStrings, ", ")
-			a.ReturnFormattedError(w, 422, "CF-UniquenessError", errorDetail, 10016)
+			ReturnFormattedError(w, 422, "CF-UniquenessError", errorDetail, 10016)
 			return
 		}
 	}
 
 	if len(errStrings) > 0 {
 		errorDetail := strings.Join(errStrings, ", ")
-		a.ReturnFormattedError(w, 422, "CF-UnprocessableEntity", errorDetail, 10008)
+		ReturnFormattedError(w, 422, "CF-UnprocessableEntity", errorDetail, 10008)
 		return
 	}
 
@@ -283,10 +283,10 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	err = a.Client.Get(ctx, types.NamespacedName{Name: appRequest.Relationships.Space.Data.GUID}, space)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			a.ReturnFormattedError(w, 404, "NotFound", err.Error(), 10000)
+			ReturnFormattedError(w, 404, "NotFound", err.Error(), 10000)
 		} else {
 			fmt.Printf("error fetching Namespace object: %v\n", *space)
-			a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+			ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		}
 		return
 	}
@@ -309,7 +309,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		err = a.Client.Create(ctx, secretObj)
 		if err != nil {
 			fmt.Printf("error creating Secret object: %v\n", *secretObj)
-			a.ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+			ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		}
 
 		envSecret = appGUID + "-env"
@@ -343,7 +343,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.ReturnFormattedResponse(w, appGUID)
+	a.ReturnFormattedResponse(w, app)
 }
 
 func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
@@ -403,7 +403,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(errStrings) > 0 {
 		errorDetail := strings.Join(errStrings, ", ")
-		a.ReturnFormattedError(w, errorHeader, errorTitle, errorDetail, errorCode)
+		ReturnFormattedError(w, errorHeader, errorTitle, errorDetail, errorCode)
 		return
 	}
 
@@ -411,10 +411,10 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		matchedApps[0].Spec.Name = appRequest.Name
 	}
 
-	var buildpacks []string
+	buildpacks := []string{}
 	stack := "cflinuxfs3"
-	if len(appRequest.Lifecycle.Data.Buildpacks) == 0 {
-		buildpacks = []string{}
+	if len(appRequest.Lifecycle.Data.Buildpacks) != 0 {
+		buildpacks = appRequest.Lifecycle.Data.Buildpacks
 	}
 	if appRequest.Lifecycle.Data.Stack != "" {
 		stack = appRequest.Lifecycle.Data.Stack
@@ -432,39 +432,13 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.ReturnFormattedResponse(w, appGUID)
+	a.ReturnFormattedResponse(w, matchedApps[0])
 }
 
-func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, appGUID string) {
-
-	//reuse the getAppHelper method to fetch and return the app in the HTTP response.
-	queryParameters := map[string][]string{
-		"guids": {appGUID},
-	}
-
-	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
-	formattedApps, err := a.getAppHelper(queryParameters)
-	if err != nil {
-		fmt.Printf("error fecthing the created app: %s\n", err)
-		w.WriteHeader(500)
-		return
-	}
+func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *appsv1alpha1.App) {
+	formattedApp := formatApp(app)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
-	json.NewEncoder(w).Encode(formattedApps[0])
-}
-
-func (a *AppHandler) ReturnFormattedError(w http.ResponseWriter, status int, title string, detail string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(CFAPIErrors{
-		Errors: []CFAPIError{
-			{
-				Title:  title,
-				Detail: detail,
-				Code:   code,
-			},
-		},
-	})
+	json.NewEncoder(w).Encode(formattedApp)
 }
