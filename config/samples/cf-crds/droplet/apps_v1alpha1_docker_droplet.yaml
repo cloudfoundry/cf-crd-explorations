@@ -16,8 +16,8 @@ spec:
     kind: Build
     apiVersion: apps.cloudfoundry.org/v1alpha1
     name: my-build-guid
+  registry:
+    image: "relintdockerhubpushbot/dora"
+    imagePullSecrets: []
 status:
-  image:
-    reference: "cloudfoundry/httpbin"
-    pullSecretName: ""
   conditions: []
