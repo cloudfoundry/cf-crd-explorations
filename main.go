@@ -167,6 +167,7 @@ func main() {
 
 	go func() {
 		log.Print("Starting shim handler")
+		dummyHandler := &handlers.DummyHandler{}
 		appHandler := &handlers.AppHandler{
 			Client: mgr.GetClient(),
 		}
@@ -179,6 +180,7 @@ func main() {
 		}
 		myRouter := mux.NewRouter()
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.GetAppHandler).Methods("GET")
+		myRouter.HandleFunc(handlers.RootEndpoint, dummyHandler.HandleRoot).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.ListAppsHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.CreateAppsHandler).Methods("POST")
 		myRouter.HandleFunc(handlers.SetAppDesiredStateEndpoint, appHandler.SetAppDesiredStateHandler).Methods("POST")
@@ -189,6 +191,8 @@ func main() {
 		myRouter.HandleFunc(handlers.UploadPackageEndpoint, packageHandler.UploadPackageHandler).Methods("POST")
 		myRouter.HandleFunc(handlers.GetBuildsEndpoint, buildHandler.GetBuildHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.BuildsEndpoint, buildHandler.CreateBuildsHandler).Methods("POST")
+		myRouter.HandleFunc(handlers.OrgsEndpoint, dummyHandler.HandleOrgs).Methods("GET")
+		myRouter.HandleFunc(handlers.SpacesEndpoint, dummyHandler.HandleSpaces).Methods("GET")
 		log.Fatal(http.ListenAndServe(":9000", myRouter))
 	}()
 
