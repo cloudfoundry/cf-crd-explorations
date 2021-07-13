@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
@@ -14,7 +13,6 @@ import (
 	"encoding/json"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -357,18 +355,4 @@ func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *appsv1a
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	json.NewEncoder(w).Encode(formattedApp)
-}
-
-func (a *AppHandler) ReturnFormattedError(w http.ResponseWriter, status int, title string, detail string, code int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(CFAPIErrors{
-		Errors: []CFAPIError{
-			{
-				Title:  title,
-				Detail: detail,
-				Code:   code,
-			},
-		},
-	})
 }

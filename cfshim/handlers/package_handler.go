@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"cloudfoundry.org/cf-crd-explorations/settings"
 	"context"
 	"encoding/json"
@@ -295,20 +297,20 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		"guids": {packageGuid},
 	})
 	if len(packages) == 0 {
-		returnFormattedError(w, 404, "NotFound", "", 10000)
+		ReturnFormattedError(w, 404, "NotFound", "", 10000)
 	}
 	pkg := packages[0]
 
 	packageBitsFile, _, err := r.FormFile("bits")
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 	defer packageBitsFile.Close()
 
 	tmpFile, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("package-%s-", packageGuid))
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 	defer os.Remove(tmpFile.Name())
@@ -316,32 +318,32 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	fmt.Println("Created tmp file: " + tmpFile.Name())
 
 	if _, err = io.Copy(tmpFile, packageBitsFile); err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
 	// Close the packageBitsFile
 	if err := tmpFile.Close(); err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
 	image, err := random.Image(0, 0)
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
 	noopFilter := func(string) bool { return true }
 	layer, err := tarball.LayerFromReader(archive.ReadZipAsTar(tmpFile.Name(), "/", 0, 0, -1, true, noopFilter))
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
 	image, err = mutate.AppendLayers(image, layer)
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -353,13 +355,13 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 
 	ref, err := name.ParseReference(fmt.Sprintf("%s/%s", registryBasePath, packageGuid))
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
 	err = remote.Write(ref, image, remote.WithAuth(authenticator))
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -391,7 +393,7 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	})
 	err = p.Client.Patch(ctx, updatedPkg, client.MergeFrom(pkg))
 	if err != nil {
-		returnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
