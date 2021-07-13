@@ -114,8 +114,7 @@ func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPack
 			//	it is used to format the JSON for bits and docker types differently
 			Type: string(pk.Spec.Type),
 		},
-		// TODO: State is missing from package spec!!!
-		State:     "",
+		State:     derivePackageState(pk.Status.Conditions),
 		CreatedAt: pk.CreationTimestamp.UTC().Format(time.RFC3339),
 		// TODO: Not sure how to get updated time, it is not present on CR for free
 		UpdatedAt: "",
@@ -425,22 +424,22 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		},
 	}
 	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
-		Type:               "Succeeded",
-		Status:             metav1.ConditionTrue,
-		Reason:             "Uploaded",
-		Message:            "",
+		Type:    "Succeeded",
+		Status:  metav1.ConditionTrue,
+		Reason:  "Uploaded",
+		Message: "",
 	})
 	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
-		Type:               "Ready",
-		Status:             metav1.ConditionTrue,
-		Reason:             "Uploaded",
-		Message:            "",
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "Uploaded",
+		Message: "",
 	})
 	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
-		Type:               "Uploaded",
-		Status:             metav1.ConditionTrue,
-		Reason:             "Uploaded",
-		Message:            "",
+		Type:    "Uploaded",
+		Status:  metav1.ConditionTrue,
+		Reason:  "Uploaded",
+		Message: "",
 	})
 	err = p.Client.Patch(ctx, updatedPkg, client.MergeFrom(pkg))
 	if err != nil {
@@ -481,4 +480,14 @@ func (p *PackageHandler) getPackagesListFromQuery(queryParameters map[string][]s
 		}
 	}
 	return matchedPackages, nil
+}
+
+func derivePackageState(Conditions []metav1.Condition) string {
+	if meta.IsStatusConditionTrue(Conditions, "Succeeded") &&
+		meta.IsStatusConditionTrue(Conditions, "Uploaded") &&
+		meta.IsStatusConditionTrue(Conditions, "Ready") {
+		return "READY"
+	} else {
+		return "AWAITING_UPLOAD"
+	}
 }
