@@ -54,7 +54,7 @@ type CFAPIMetadata struct {
 type CFAPIPackageResource struct {
 	Type          string                       `json:"type"`
 	Relationships CFAPIPackageAppRelationships `json:"relationships"`
-	Data          CFAPIPackageData             `json:"data"`
+	Data          *CFAPIPackageData            `json:"data,omitempty"`
 }
 
 type CFAPIPackageAppRelationships struct {
@@ -70,9 +70,9 @@ type CFAPIPackageAppRelationshipsAppData struct {
 }
 
 type CFAPIPackageData struct {
-	Image    string `json:"image"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Image    string  `json:"image"`
+	Username *string `json:"username,omitempty"`
+	Password *string `json:"password,omitempty"`
 }
 
 type CFAPIErrors struct {
