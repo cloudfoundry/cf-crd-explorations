@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -e
 
 function usage_text() {
   cat <<EOF
@@ -41,16 +41,15 @@ while [[ $# -gt 0 ]]; do
 done
 
 # For GCR with a json key, DOCKER_USERNAME is `_json_key`
-DOCKER_USERNAME=${DOCKER_USERNAME:-'_json_key'}
-DOCKER_PASSWORD=$(cat $GCP_SERVICE_ACCOUNT_JSON_FILE)
-DOCKER_SERVER="${DOCKER_SERVER:-'gcr.io'}"
+DOCKER_USERNAME=${DOCKER_USERNAME:-"_json_key"}
+DOCKER_PASSWORD=${DOCKER_PASSWORD:-"$(cat $GCP_SERVICE_ACCOUNT_JSON_FILE)"}
+DOCKER_SERVER=${DOCKER_SERVER:-"gcr.io"}
 
 # Kpack
-kubectl create secret docker-registry tutorial-registry-credentials \
-    --docker-username=$DOCKER_USERNAME \
-    --docker-password="$DOCKER_PASSWORD" \
-    --docker-server=$DOCKER_SERVER \
-    --namespace default
+kubectl create secret docker-registry kpack-registry-credentials \
+    --docker-username=$DOCKER_USERNAME --docker-password="$DOCKER_PASSWORD" --docker-server=$DOCKER_SERVER --namespace default
+# kubectl create secret docker-registry kpack-registry-credentials --docker-username="_json_key" --docker-password="$(cat /home/birdrock/workspace/credentials/cf-relint-greengrass-2826975617b2.json)" --docker-server=gcr.io --namespace default
+
 
 kubectl apply -f config/samples/kpack/release-0.3.1.yaml
 kubectl apply -f config/samples/kpack/serviceaccount.yaml \
