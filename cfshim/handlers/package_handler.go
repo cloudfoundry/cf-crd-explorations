@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"cloudfoundry.org/cf-crd-explorations/settings"
 	"context"
 	"encoding/json"
@@ -63,44 +61,10 @@ func (p *PackageHandler) getPackageHelper(queryParameters map[string][]string) (
 	return matchedPackages, nil
 }
 
-func (p *PackageHandler) ReturnFormattedResponse(w http.ResponseWriter, packageGUID string, username string) {
-
-	//reuse the getAppHelper method to fetch and return the app in the HTTP response.
-	queryParameters := map[string][]string{
-		"guids": {packageGUID},
-	}
-
-	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
-	matchedPackages, err := p.getPackageHelper(queryParameters)
-	if err != nil || len(matchedPackages) == 0 {
-		fmt.Printf("error fecthing the created package: %s\n", err)
-		w.WriteHeader(500)
-		return
-	}
-
-	formattedPackage := formatPackageResponse(matchedPackages[0], username)
-
+func (p *PackageHandler) ReturnFormattedResponse(w http.ResponseWriter, formattedPackage *CFAPIPresenterPackageResource) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
-	json.NewEncoder(w).Encode(formattedPackage)
-}
-
-func formatPackageResponse(pk *appsv1alpha1.Package, username string) CFAPIPackageResource {
-	return CFAPIPackageResource{
-		Type: string(pk.Spec.Type),
-		Relationships: CFAPIPackageAppRelationships{
-			App: CFAPIPackageAppRelationshipsApp{
-				Data: CFAPIPackageAppRelationshipsAppData{
-					GUID: pk.Spec.AppRef.Name,
-				},
-			},
-		},
-		Data: CFAPIPackageData{
-			Image:    pk.Spec.Source.Registry.Image,
-			Username: username,
-			Password: "****",
-		},
-	}
+	json.NewEncoder(w).Encode(*formattedPackage)
 }
 
 // formatPresenterPackageResponse Given a CR package, convert to the CF API response format:
@@ -145,51 +109,6 @@ func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPack
 	return toReturn
 }
 
-func (p *PackageHandler) getAppHelper(queryParameters map[string][]string) ([]CFAPIAppResource, error) {
-	// use a helper function to break comma separated values into []string
-	formatQueryParams(queryParameters)
-
-	// Apply filter to AllPackages and store result in matchedApps
-	matchedApps, err := p.getAppListFromQuery(queryParameters)
-	if err != nil {
-		// Print the error if K8s client fails
-		fmt.Printf("error fetching apps from query: %s\n", err)
-		return nil, err
-	}
-
-	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
-	formattedApps := make([]CFAPIAppResource, 0, len(matchedApps))
-	for _, app := range matchedApps {
-		formattedApps = append(formattedApps, formatApp(app))
-	}
-
-	return formattedApps, nil
-
-}
-
-func (p *PackageHandler) getAppListFromQuery(queryParameters map[string][]string) ([]*appsv1alpha1.App, error) {
-	var filter Filter = &filters.AppFilter{
-		QueryParameters: queryParameters,
-	}
-
-	// Get all the CF Apps from K8s API store in AllPackages which contains Items: []App
-	AllPackages := &appsv1alpha1.AppList{}
-	err := p.Client.List(context.Background(), AllPackages)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching app: %v", err)
-	}
-
-	// Apply filter to AllPackages and store result in matchedApps
-	var matchedApps []*appsv1alpha1.App
-	fmt.Printf("%v\n", matchedApps)
-	for i, _ := range AllPackages.Items {
-		if filter.Filter(&AllPackages.Items[i]) {
-			matchedApps = append(matchedApps, &AllPackages.Items[i])
-		}
-	}
-	return matchedApps, nil
-}
-
 // GetPackageHandler is for getting a single package from the guid
 // For now, only outputs the first match after searching ALL namespaces for Packages
 // GET /v3/packages/:guid
@@ -202,11 +121,10 @@ func (p *PackageHandler) GetPackageHandler(w http.ResponseWriter, r *http.Reques
 	queryParameters := map[string][]string{
 		"guids": {packageGUID},
 	}
-
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
 	matchedPackages, err := p.getPackageHelper(queryParameters)
 	if err != nil {
-		fmt.Printf("error fecthing the package: %s\n", err)
+		fmt.Printf("error fetching the package: %s\n", err)
 		w.WriteHeader(500)
 		return
 	} else if len(matchedPackages) < 1 {
@@ -265,60 +183,77 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 		fmt.Printf("error parsing request: %s\n", err)
 		w.WriteHeader(400)
 	}
+
+	// Get the app from the packageRequest relationships
 	queryParams := map[string][]string{
 		"guids": {packageRequest.Relationships.App.Data.GUID},
 	}
-
-	appResources, err := p.getAppHelper(queryParams)
+	matchedApps, err := getAppListFromQuery(&p.Client, queryParams)
 	if err != nil {
 		// Print the error if K8s client fails
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "Failed to get the App namespace %v", err)
 		return
 	}
-
-	if len(appResources) == 0 {
+	if len(matchedApps) == 0 {
 		w.WriteHeader(422)
 		fmt.Fprintf(w, "Failed to create package as App does not exist")
 		return
 	}
 
-	namespace := appResources[0].Relationships.Space.Data.GUID
+	namespace := matchedApps[0].Namespace
 
 	packageGUID := uuid.NewString()
-
-	secretObj := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      generatePackageSecretName(packageGUID),
-			Namespace: namespace,
-		},
-		StringData: map[string]string{"username": packageRequest.Data.Username, "password": packageRequest.Data.Password},
-	}
-	err = p.Client.Create(context.Background(), secretObj)
-	if err != nil {
-		fmt.Printf("error creating Secret object: %v\n", *secretObj)
-		w.WriteHeader(500)
-	}
-
 	pk := &appsv1alpha1.Package{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
 			Namespace: namespace, // how do we ensure that the namespace exists?
 		},
 		Spec: appsv1alpha1.PackageSpec{
-			Type: appsv1alpha1.PackageType("docker"),
+			Type: appsv1alpha1.PackageType(packageRequest.Type),
 			AppRef: appsv1alpha1.ApplicationReference{
 				Name: packageRequest.Relationships.App.Data.GUID,
 			},
-			Source: appsv1alpha1.PackageSource{
-				Registry: appsv1alpha1.Registry{
-					Image: packageRequest.Data.Image,
-					ImagePullSecrets: []corev1.LocalObjectReference{
-						{Name: packageGUID + "-secret"},
-					},
-				},
-			},
 		},
+	}
+
+	// Validate that the Docker image field has been provided
+	if packageRequest.Type == "docker" {
+		if packageRequest.Data == nil || packageRequest.Data.Image == "" {
+			errorMessage := "Data Image must be a string, Data Image required"
+			ReturnFormattedError(w, 422, "CF-UnprocessableEntity", errorMessage, 10008)
+			return
+		}
+
+		// Add the docker image to the package spec
+		pk.Spec.Source = appsv1alpha1.PackageSource{
+			Registry: appsv1alpha1.Registry{
+				Image: packageRequest.Data.Image,
+			},
+		}
+
+		// If username and password are provided for the image, create a secret containing them
+		if packageRequest.Data.Username != nil && packageRequest.Data.Password != nil {
+			secretName := generatePackageSecretName(packageGUID)
+
+			// Only create a secret if type is Docker and we have a username + password in packageRequest
+			secretObj := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      generatePackageSecretName(packageGUID),
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"username": *packageRequest.Data.Username, "password": *packageRequest.Data.Password},
+			}
+			err = p.Client.Create(context.Background(), secretObj)
+			if err != nil {
+				fmt.Printf("error creating docker package Secret object: %v\n", err)
+				w.WriteHeader(500)
+			}
+			// Add the secret details to our desired Package that we will create
+			pk.Spec.Source.Registry.ImagePullSecrets = []corev1.LocalObjectReference{
+				{Name: secretName},
+			}
+		}
 	}
 
 	err = p.Client.Create(context.Background(), pk)
@@ -328,7 +263,20 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	p.ReturnFormattedResponse(w, packageGUID, packageRequest.Data.Username)
+	// Format the in-memory package to the PresenterPackage type to match the CF API output JSON
+	formattedPackage := formatPresenterPackageResponse(pk)
+	if packageRequest.Type == "docker" && packageRequest.Data.Username != nil {
+		updateDockerPackageResponse(&formattedPackage, *packageRequest.Data.Username)
+	}
+
+	p.ReturnFormattedResponse(w, &formattedPackage)
+}
+
+// updateDockerPackageResponse updates formattedPackage in-place to add Docker username and password fields
+func updateDockerPackageResponse(formattedPackage *CFAPIPresenterPackageResource, username string) *CFAPIPresenterPackageResource {
+	formattedPackage.Data.Username = username
+	formattedPackage.Data.Password = "***"
+	return formattedPackage
 }
 
 // dumb helper function to make the secret name for a docker package in case we want to change it later.

@@ -65,8 +65,6 @@ type AppStatus struct {
 }
 
 type Lifecycle struct {
-	// We used to have type here instead of up a level
-
 	// Lifecycle data used to specify details for the Lifecycle
 	Data LifecycleData `json:"data"`
 }

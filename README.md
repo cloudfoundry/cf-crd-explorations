@@ -18,6 +18,7 @@ This is just a sandbox for exploring how the V3 Cloud Foundry APIs might be back
 ## Trying it out
 
 ### Cluster Pre-requisites
+The below requirements can be installed with the `./hack/install-dependencies.sh` script. It takes a flag to a gcr json key with a `-g` or `--gcr-service-account-json` flag, which specifies the file location of a gcr json key.
 
 * Eirini Controller installed ([instructions](https://github.com/cloudfoundry-incubator/eirini-controller/blob/master/README.md))
 * Kpack installed ([instructions](https://github.com/pivotal/kpack/blob/main/docs/install.md))
@@ -38,8 +39,10 @@ Deploy CRDs to K8s in current Kubernetes context
 make install
 ```
 
-### Running the API and controllers
-We currently don't support installing the API/controllers to the cluster, but you can run them locally against a targeting (via kubeconfig) K8s cluster
+## Running the API and controllers
+
+### Running locally
+Run controllers locally against a targeting (via kubeconfig) K8s cluster
 
 The spike code converts Apps, Processes, and Droplets into Eirini LRP resources which requires the Eirini LRP controller (see cluster pre-requisites above for information on how to install it).
 
@@ -78,7 +81,32 @@ kubectl apply -f config/samples/cf-crds/. --recursive
 
 **Note:** If you want the sample app to be routable you must update the sample Route CR (config/samples/sample_app_route.yaml) to point to the configured apps domain for your environment. Since we're leveraging cf-for-k8s for its Eirini installation the easiest way to make the app routable is by using the existing cf-for-k8s RouteController and Route CR.
 
-#### Manually update the ImageRef on the sample Droplet
+### Run on Cluster
+
+The deployment spec for the controller will need to have the `REGISTRY_TAG_BASE` env var set in order for the controller to understand where to publish images. See: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+
+As when deploying locally, kpack and Eirini will need to be configured and deployed.
+
+If code changes are made, the controller manager image will also need to be built and pushed to a registry via the make commands.
+```
+make docker-build
+make docker-push
+```
+
+
+To deploy to the controller manager to the cluster, run:
+```
+make deploy
+```
+
+In order to access the API shim, you need to configure a service such as `config/supporting-objects/service.yaml`. Once configured, you can curl the available endpoints.
+
+For example:
+```
+curl LB_IP/v3/apps/
+```
+
+### Manually update the ImageRef on the sample Droplet
 Since we do not have a spike implementation of staging or a Droplets Controller at this time (we expect to do this in https://github.com/cloudfoundry/cf-crd-explorations/issues/6), we have to manually set the image on the sample Droplet. To do this you must 
 
 1. `kubectl proxy &`
@@ -102,28 +130,28 @@ To experiment with the CF API shim, you can access the following endpoints and a
 | **GET** / **PUT**  | `/v3/apps/:guid` |
 | **POST**           | `/v3/packages`   |
 
-For example, you can get a list of applications by running `curl http://localhost:81/v3/apps | jq .`
+For example, you can get a list of applications by running `curl http://localhost:9000/v3/apps | jq .`
 
 #### Filtering Results
 The `/v3/apps` endpoint allows filtering.
 
 ```
-$ curl http://localhost:81/v3/apps?lifecycle_type=kpack
-$ curl http://localhost:81/v3/apps?names=my-app-name,<new spec.name>
+$ curl http://localhost:9000/v3/apps?lifecycle_type=kpack
+$ curl http://localhost:9000/v3/apps?names=my-app-name,<new spec.name>
 ```
 
 Note: non-existent filter fields will not restrict results. In the case of a bogus filter, all results will be returned. We should discuss what our intended behavior is in the future.
 
 #### Creating or Updating Apps
 ```
-curl "http://localhost:81/v3/apps" \
+curl "http://localhost:9000/v3/apps" \
   -X POST \
   -d '{"name":"my-app","relationships":{"space":{"data":{"guid":"cf-workloads"}}}}'
 ```
 
 
 ```
-curl "http://localhost:81/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
+curl "http://localhost:9000/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
   -X PUT \
   -d '{"name":"my-app","lifecycle":{"type":"kpack","data":{"buildpacks":["java_buildpack","ruby"],"stack":"cflinuxfs3"}}}'
 ```
@@ -132,7 +160,7 @@ curl "http://localhost:81/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
 In order to create a docker Package, the associated App must be created first.
 
 ```
-curl "http://localhost:81/v3/packages" \
+curl "http://localhost:9000/v3/packages" \
   -X POST \
   -d '{"type":"docker","relationships":{"app":{"data":{"guid":"9f924342-472a-43a1-9db9-54beba5401e2"}}},"data":{"image":"registry/your-image:latest","username":"dockerusername","password":"dockerpassword"}}'
 
@@ -149,8 +177,3 @@ curl "http://localhost:81/v3/packages" \
 ```
 make manifests
 ```
-
-**NOTE:**
-
-This will generate a file called `cf-crd-explorations/config/crd/bases/apps.cloudfoundry.org_buildren.yaml` with kubebuilder 3.1.0 you need to modify this file and rename it for the proper plural of build -> -buildren- builds to appear in K8s.
-Refer to `cf-crd-explorations/config/crd/bases/apps.cloudfoundry.org_builds.yaml` for an example.

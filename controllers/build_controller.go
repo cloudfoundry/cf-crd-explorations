@@ -54,6 +54,8 @@ type BuildReconciler struct {
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=builds,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=builds/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=builds/finalizers,verbs=update
+//+kubebuilder:rbac:groups=kpack.io,resources=builds,verbs=get;list;watch
+//+kubebuilder:rbac:groups=kpack.io,resources=images,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
