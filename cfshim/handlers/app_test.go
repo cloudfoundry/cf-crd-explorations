@@ -9,7 +9,7 @@ import (
 	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 )
 
-func FTestQueryParams(t *testing.T) {
+func XTestQueryParams(t *testing.T) {
 	queryParams := map[string][]string{
 		"0": []string{"a"},
 		"1": []string{"a,b"},
@@ -26,7 +26,7 @@ func FTestQueryParams(t *testing.T) {
 		t.Errorf("Error matching")
 	}
 }
-func FTestQueryParamsConvert(t *testing.T) {
+func XTestQueryParamsConvert(t *testing.T) {
 	queryParams := map[string][]string{
 		"0": []string{"a"},
 		"1": []string{"a,b"},
@@ -45,7 +45,7 @@ func FTestQueryParamsConvert(t *testing.T) {
 	}
 }
 
-func FTestPresenterFormatting(t *testing.T) {
+func XTestPresenterFormatting(t *testing.T) {
 	// Create empty CFAPIPresenterPackageResource
 	emptyCFAPIPresenterPackageResource := handlers.CFAPIPresenterPackageResource{}
 	emptyCFAPIPresenterPackageResource.Data.Type = "bits"
@@ -59,5 +59,21 @@ func FTestPresenterFormatting(t *testing.T) {
 
 	//unformattedJSON, _ := json.Marshal(emptyCFAPIPresenterPackageResource)
 	//fmt.Printf("%+v\n", string(unformattedJSON))
+
+}
+
+func TestAppPresenterFormatting(t *testing.T) {
+	// Create empty CFAPIPresenterPackageResource
+	emptyCFAPIPresenterAppResource := handlers.CFAPIPresenterAppResource{
+		Links: map[string]handlers.CFAPIAppLink{},
+		Metadata: handlers.CFAPIMetadata{
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+		},
+	}
+	emptyCFAPIPresenterAppResource.Lifecycle.Type = "buildpack"
+	fmt.Printf("%+v\n", emptyCFAPIPresenterAppResource)
+	formattedJSON, _ := json.MarshalIndent(emptyCFAPIPresenterAppResource, "", "    ")
+	fmt.Printf("%+v\n", string(formattedJSON))
 
 }

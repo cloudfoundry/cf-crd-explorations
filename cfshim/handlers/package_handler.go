@@ -100,50 +100,6 @@ func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPack
 	return toReturn
 }
 
-func (p *PackageHandler) getAppHelper(queryParameters map[string][]string) ([]CFAPIAppResource, error) {
-	// use a helper function to break comma separated values into []string
-	formatQueryParams(queryParameters)
-
-	// Apply filter to AllApps and store result in matchedApps
-	matchedApps, err := p.getAppListFromQuery(queryParameters)
-	if err != nil {
-		// Print the error if K8s client fails
-		fmt.Printf("error fetching apps from query: %s\n", err)
-		return nil, err
-	}
-
-	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
-	formattedApps := make([]CFAPIAppResource, 0, len(matchedApps))
-	for _, app := range matchedApps {
-		formattedApps = append(formattedApps, formatApp(app))
-	}
-
-	return formattedApps, nil
-
-}
-
-func (p *PackageHandler) getAppListFromQuery(queryParameters map[string][]string) ([]*appsv1alpha1.App, error) {
-	var filter Filter = &filters.AppFilter{
-		QueryParameters: queryParameters,
-	}
-
-	// Get all the CF Apps from K8s API store in AllApps which contains Items: []App
-	AllApps := &appsv1alpha1.AppList{}
-	err := p.Client.List(context.Background(), AllApps)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching app: %v", err)
-	}
-
-	// Apply filter to AllApps and store result in matchedApps
-	var matchedApps []*appsv1alpha1.App
-	for i, _ := range AllApps.Items {
-		if filter.Filter(&AllApps.Items[i]) {
-			matchedApps = append(matchedApps, &AllApps.Items[i])
-		}
-	}
-	return matchedApps, nil
-}
-
 // GetPackageHandler is for getting a single package from the guid
 // For now, only outputs the first match after searching ALL namespaces for Packages
 // GET /v3/packages/:guid
@@ -156,7 +112,6 @@ func (p *PackageHandler) GetPackageHandler(w http.ResponseWriter, r *http.Reques
 	queryParameters := map[string][]string{
 		"guids": {packageGUID},
 	}
-
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
 	matchedPackages, err := p.getPackageHelper(queryParameters)
 	if err != nil {
@@ -224,20 +179,20 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 	queryParams := map[string][]string{
 		"guids": {packageRequest.Relationships.App.Data.GUID},
 	}
-	appResources, err := p.getAppHelper(queryParams)
+	matchedApps, err := getAppListFromQuery(&p.Client, queryParams)
 	if err != nil {
 		// Print the error if K8s client fails
 		w.WriteHeader(500)
 		fmt.Fprintf(w, "Failed to get the App namespace %v", err)
 		return
 	}
-	if len(appResources) == 0 {
+	if len(matchedApps) == 0 {
 		w.WriteHeader(422)
 		fmt.Fprintf(w, "Failed to create package as App does not exist")
 		return
 	}
 
-	namespace := appResources[0].Relationships.Space.Data.GUID
+	namespace := matchedApps[0].Namespace
 
 	packageGUID := uuid.NewString()
 	pk := &appsv1alpha1.Package{

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
@@ -14,7 +13,6 @@ import (
 	"encoding/json"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,11 +30,11 @@ type AppHandler struct {
 	Client client.Client
 }
 
-// ShowAppHandler is for getting a single app from the guid
+// GetAppHandler is for getting a single app from the guid
 // For now, only outputs the first match after searching ALL namespaces for Apps
 // GET /v3/apps/:guid
 // https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#get-an-app
-func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
+func (a *AppHandler) GetAppHandler(w http.ResponseWriter, r *http.Request) {
 	//Fetch the {guid} value from URL using gorilla mux
 	vars := mux.Vars(r)
 	appGUID := vars["guid"]
@@ -46,14 +44,14 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 		"guids": {appGUID},
 	}
 
-	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
-	formattedApps, err := a.getAppHelper(queryParameters)
+	// Use the k8s client to fetch the apps with the same metadata.name as the guid
+	matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
 	if err != nil {
 		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
-	if len(formattedApps) < 1 {
+	if len(matchedApps) < 1 {
 		// If no matches for the GUID, just return a 404
 		w.WriteHeader(404)
 		return
@@ -62,34 +60,11 @@ func (a *AppHandler) ShowAppHandler(w http.ResponseWriter, r *http.Request) {
 	// Write MatchedApps to http ResponseWriter
 	w.Header().Set("Content-Type", "application/json")
 	// We are only printing the first element in the list for now ignoring cross-namespace guid collisions
-	json.NewEncoder(w).Encode(formattedApps[0])
-}
-
-//GetAppHelper is a helper function that takes a map of query parameters as input and return a list of matched apps.
-func (a *AppHandler) getAppHelper(queryParameters map[string][]string) ([]CFAPIAppResource, error) {
-	// use a helper function to break comma separated values into []string
-	formatQueryParams(queryParameters)
-
-	// Apply filter to AllApps and store result in matchedApps
-	matchedApps, err := a.getAppListFromQuery(queryParameters)
-	if err != nil {
-		// Print the error if K8s client fails
-		fmt.Printf("error fetching apps from query: %s\n", err)
-		return nil, err
-	}
-
-	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
-	formattedApps := make([]CFAPIAppResource, 0, len(matchedApps))
-	for _, app := range matchedApps {
-		formattedApps = append(formattedApps, formatApp(app))
-	}
-
-	return formattedApps, nil
-
+	a.ReturnFormattedResponse(w, matchedApps[0])
 }
 
 type GetListResponse struct {
-	Resources []CFAPIAppResource `json:"resources"`
+	Resources []CFAPIPresenterAppResource `json:"resources"`
 }
 
 // ListAppsHandler takes URL query parameters and sends a request to the Kuberentes API for the list of matching apps
@@ -104,7 +79,7 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	formatQueryParams(queryParameters)
 
 	// Apply filter to AllApps and store result in matchedApps
-	matchedApps, err := a.getAppListFromQuery(queryParameters)
+	matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
 	if err != nil {
 		// Print the error if K8s client fails
 		fmt.Printf("Error matching app: %v", err)
@@ -113,9 +88,9 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to a list of CFAPIAppResource to match old Cloud Controller Formatting in REST response
-	formattedApps := make([]CFAPIAppResource, 0, len(matchedApps))
+	formattedApps := make([]CFAPIPresenterAppResource, 0, len(matchedApps))
 	for _, app := range matchedApps {
-		formattedApps = append(formattedApps, formatApp(app))
+		formattedApps = append(formattedApps, formatAppToPresenter(app))
 	}
 
 	// Write MatchedApps to http ResponseWriter
@@ -124,31 +99,6 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 		Resources: formattedApps,
 	})
 
-}
-
-// getAppListFromQuery takes URL query parameters and queries the K8s Client for all Apps
-// builds a filter based on params and walks through, placing every match into the returned list of Apps
-// returns an error if something went wrong with the K8s query
-func (a *AppHandler) getAppListFromQuery(queryParameters map[string][]string) ([]*appsv1alpha1.App, error) {
-	var filter Filter = &filters.AppFilter{
-		QueryParameters: queryParameters,
-	}
-
-	// Get all the CF Apps from K8s API store in AllApps which contains Items: []App
-	AllApps := &appsv1alpha1.AppList{}
-	err := a.Client.List(context.Background(), AllApps)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching app: %v", err)
-	}
-
-	// Apply filter to AllApps and store result in matchedApps
-	var matchedApps []*appsv1alpha1.App
-	for i, _ := range AllApps.Items {
-		if filter.Filter(&AllApps.Items[i]) {
-			matchedApps = append(matchedApps, &AllApps.Items[i])
-		}
-	}
-	return matchedApps, nil
 }
 
 // formatQueryParams takes a map of string query parameters and splits any entries with commas in them in-place
@@ -160,42 +110,6 @@ func formatQueryParams(queryParams map[string][]string) {
 			newParamsList = append(newParamsList, commaSeparatedParamsFromValue...)
 		}
 		queryParams[key] = newParamsList
-	}
-}
-
-type Filter interface {
-	// Filter takes an object, casts it uses preset filters and returns yes/no
-	Filter(interface{}) bool
-}
-
-func formatApp(app *appsv1alpha1.App) CFAPIAppResource {
-	return CFAPIAppResource{
-		GUID:      app.Name,
-		Name:      app.Spec.Name,
-		State:     string(app.Spec.State),
-		CreatedAt: app.CreationTimestamp.UTC().Format(time.RFC3339),
-		// TODO: Solve this- kubectl creates managedFields entry for us
-		UpdatedAt: "",
-		Lifecycle: CFAPIAppLifecycle{
-			Type: string(app.Spec.Type),
-			Data: CFAPIAppLifecycleData{
-				Buildpacks: app.Spec.Lifecycle.Data.Buildpacks,
-				Stack:      app.Spec.Lifecycle.Data.Stack,
-			},
-		},
-		Relationships: CFAPIAppRelationships{
-			Space: CFAPIAppRelationshipsSpace{
-				Data: CFAPIAppRelationshipsSpaceData{
-					GUID: app.Namespace,
-				},
-			},
-		},
-		// URL information about the server where you sub in the app GUID..
-		Links: map[string]CFAPIAppLink{},
-		Metadata: CFAPIMetadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
-		},
 	}
 }
 
@@ -244,7 +158,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		var matchedApps []*appsv1alpha1.App
 
 		// Apply filter to AllApps and store result in matchedApps
-		matchedApps, err := a.getAppListFromQuery(queryParameters)
+		matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
 		if err != nil {
 			// Print the error if K8s client fails
 			fmt.Printf("error fetching apps from query: %s\n", err)
@@ -359,7 +273,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	var matchedApps []*appsv1alpha1.App
 
 	// Apply filter to AllApps and store result in matchedApps
-	matchedApps, err := a.getAppListFromQuery(queryParameters)
+	matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
 	if err != nil {
 		// Print the error if K8s client fails
 		fmt.Printf("error fetching apps from query: %s\n", err)
@@ -436,7 +350,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *appsv1alpha1.App) {
-	formattedApp := formatApp(app)
+	formattedApp := formatAppToPresenter(app)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)

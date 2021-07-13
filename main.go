@@ -165,7 +165,7 @@ func main() {
 			Client: mgr.GetClient(),
 		}
 		myRouter := mux.NewRouter()
-		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.ShowAppHandler).Methods("GET")
+		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.GetAppHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.ListAppsHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.CreateAppsHandler).Methods("POST")
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.UpdateAppsHandler).Methods("PUT")
