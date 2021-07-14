@@ -79,10 +79,10 @@ spec:
               name:
                 type: string
               type:
-                description: 'Specifies the CF Lifecycle type: https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#sample-requests Valid values are: "docker": run prebuilt docker image "kpack": stage the app using kpack'
+                description: 'Specifies the CF Lifecycle type: https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#sample-requests Valid values are: "docker": run prebuilt docker image "buildpack": stage the app using kpack'
                 enum:
                 - docker
-                - kpack
+                - buildpack
                 type: string
             required:
             - currentDropletRef

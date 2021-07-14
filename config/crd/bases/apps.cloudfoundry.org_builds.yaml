@@ -95,7 +95,7 @@ spec:
                 description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run "make" to regenerate code after modifying this file Specifies the lifecycle type kpack or docker of the build'
                 enum:
                 - docker
-                - kpack
+                - buildpack
                 type: string
             required:
             - appRef

@@ -13,7 +13,6 @@ import (
 	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"cloudfoundry.org/cf-crd-explorations/settings"
 	"github.com/buildpacks/pack/pkg/archive"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -21,6 +20,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/pivotal/kpack/pkg/registry"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -38,7 +39,8 @@ const (
 
 type PackageHandler struct {
 	// This is a Kuberentes client, contains authentication and context stuff for running K8s queries
-	Client client.Client
+	Client          client.Client
+	KeychainFactory registry.KeychainFactory
 }
 
 func (p *PackageHandler) getPackageHelper(queryParameters map[string][]string) ([]*appsv1alpha1.Package, error) {
@@ -305,19 +307,25 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	authenticator := authn.FromConfig(authn.AuthConfig{
-		Username: settings.GlobalSettings.PackageRegistryUsername,
-		Password: settings.GlobalSettings.PackageRegistryPassword,
-	})
-	registryBasePath := settings.GlobalSettings.PackageRegistryTagBase
+	registrySecretName := settings.GlobalSettings.RegistrySecret
+	packageRegistryBasePath := settings.GlobalSettings.PackageRegistryBase
 
-	ref, err := name.ParseReference(fmt.Sprintf("%s/%s", registryBasePath, packageGuid))
+	ref, err := name.ParseReference(fmt.Sprintf("%s/%s", packageRegistryBasePath, packageGuid))
 	if err != nil {
 		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
-	err = remote.Write(ref, image, remote.WithAuth(authenticator))
+	keychain, err := p.KeychainFactory.KeychainForSecretRef(ctx, registry.SecretRef{
+		Namespace:        "default",
+		ImagePullSecrets: []corev1.LocalObjectReference{{Name: registrySecretName}},
+	})
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	err = remote.Write(ref, image, remote.WithAuthFromKeychain(keychain))
 	if err != nil {
 		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
@@ -327,7 +335,7 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	updatedPkg.Spec.Source = appsv1alpha1.PackageSource{
 		Registry: appsv1alpha1.Registry{
 			Image:            ref.Name(),
-			ImagePullSecrets: nil, // TODO: What goes here? Maybe take this secret name as a config?
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: registrySecretName}},
 		},
 	}
 	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{

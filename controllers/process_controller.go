@@ -46,7 +46,7 @@ type ProcessReconciler struct {
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=processes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=processes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=processes/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=list;watch
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="eirini.cloudfoundry.org",resources=lrps,verbs=list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -87,9 +87,11 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// may need to verify that the droplet imageRef is in the status
 
 	appEnvSecret := new(corev1.Secret)
-	if err := r.Get(ctx, types.NamespacedName{Name: app.Spec.EnvSecretName, Namespace: req.Namespace}, appEnvSecret); err != nil {
-		logger.Info(fmt.Sprintf("Error fetching appEnvSecret: %s", err))
-		return ctrl.Result{}, err
+	if app.Spec.EnvSecretName != "" {
+		if err := r.Get(ctx, types.NamespacedName{Name: app.Spec.EnvSecretName, Namespace: req.Namespace}, appEnvSecret); err != nil {
+			logger.Info(fmt.Sprintf("Error fetching appEnvSecret: %s", err))
+			return ctrl.Result{}, err
+		}
 	}
 
 	// fetch the LRP if it exists
@@ -202,7 +204,7 @@ func eiriniLRPMutateFunction(actualLRP, desiredLRP *eiriniv1.LRP) controllerutil
 func commandForProcess(process *cfappsv1alpha1.Process, app *cfappsv1alpha1.App) []string {
 	if process.Spec.Command == "" {
 		return []string{}
-	} else if app.Spec.Type == "kpack" {
+	} else if app.Spec.Type == cfappsv1alpha1.BuildpackLifecycle {
 		return []string{"/cnb/lifecycle/launcher", process.Spec.Command}
 	} else {
 		return []string{"/bin/sh", "-c", process.Spec.Command}

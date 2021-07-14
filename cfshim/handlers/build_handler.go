@@ -108,14 +108,14 @@ func (b *BuildHandler) CreateBuildsHandler(w http.ResponseWriter, r *http.Reques
 
 	lifecycleType := buildRequest.Lifecycle.Type
 	if lifecycleType == "" {
-		lifecycleType = "kpack"
+		lifecycleType = string(appsv1alpha1.BuildpackLifecycle)
 	}
 
 	lifecycleData := buildRequest.Lifecycle.Data
-	if lifecycleType == "kpack" && lifecycleData.Stack == "" {
+	if lifecycleType == string(appsv1alpha1.BuildpackLifecycle) && lifecycleData.Stack == "" {
 		lifecycleData.Stack = "cflinuxfs3" // TODO: This is the default in CF for VMs. What should the default stack be here?
 	}
-	if lifecycleType == "kpack" && len(lifecycleData.Buildpacks) == 0 {
+	if lifecycleType == string(appsv1alpha1.BuildpackLifecycle) && len(lifecycleData.Buildpacks) == 0 {
 		lifecycleData.Buildpacks = []string{}
 	}
 

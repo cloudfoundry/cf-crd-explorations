@@ -14,5 +14,5 @@ spec:
   source:
     registry:
       image: "relintdockerhubpushbot/kpack-tutorial-demo-app-3:tagname"
-      imagePullSecrets:
-      - name: "optional"
+#      imagePullSecrets:
+#      - name: "optional"

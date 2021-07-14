@@ -6,7 +6,7 @@ metadata:
   labels:
     apps.cloudfoundry.org/appGuid: my-app-guid
     apps.cloudfoundry.org/processGuid: my-process-guid
-    apps.cloudfoundry.org/processType: web
+    apps.cloudfoundry.org/processType: web # this is specified by the buildpack or users from a procfile
 spec:
   appRef:
     kind: App

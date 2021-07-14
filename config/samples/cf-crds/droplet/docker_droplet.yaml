@@ -19,5 +19,10 @@ spec:
   registry:
     image: "relintdockerhubpushbot/dora"
     imagePullSecrets: []
+  processTypes:
+    - rake: "bundle exec rake"
+    - web: "bundle exec rackup config.ru"
+  ports:
+    - 8080
 status:
   conditions: []

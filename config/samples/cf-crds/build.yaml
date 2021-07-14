@@ -8,7 +8,7 @@ metadata:
     apps.cloudfoundry.org/packageGuid: kpack-package-guid
 spec:
   # TODO: should this be buildpack?
-  type: kpack
+  type: buildpack
   packageRef:
     kind: Package
     apiVersion: apps.cloudfoundry.org/v1alpha1

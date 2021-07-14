@@ -7,7 +7,7 @@ type CFAPIBuildResource struct {
 	UpdatedAt     string                  `json:"updated_at"`
 	Lifecycle     CFAPILifecycle          `json:"lifecycle,omitempty"`
 	Package       *CFAPIBuildPackage      `json:"package"`
-	Droplet       CFAPIBuildDroplet       `json:"droplet"`
+	Droplet       *CFAPIBuildDroplet      `json:"droplet"`
 	Relationships CFAPIBuildRelationships `json:"relationships"`
 	Links         map[string]CFAPILink    `json:"links"`
 	Metadata      CFAPIMetadata           `json:"metadata"`

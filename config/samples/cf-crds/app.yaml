@@ -8,8 +8,8 @@ metadata:
     apps.cloudfoundry.org/appName: my-app-name
 spec:
   name: my-app-name
-  desiredState: STARTED
-  type: kpack
+  state: STARTED
+  type: buildpack
   lifecycle:
     data:
       buildpacks: []

@@ -60,7 +60,7 @@ type ProcessSpec struct {
 
 	// Specifies the sidecars to be run alongside the Process
 	// TODO: Should this be its own CRD?, essentially lives at AppManifest and Process level simultaneously
-	Sidecars []ProcessSidecar `json:"sidecars"`
+	Sidecars []ProcessSidecar `json:"sidecars,omitempty"`
 }
 
 type HealthCheck struct {
