@@ -92,7 +92,7 @@ func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPack
 			},
 		},
 		// URL information about the server where you sub in the package GUID..
-		Links: map[string]CFAPIAppLink{},
+		Links: map[string]CFAPILink{},
 		Metadata: CFAPIMetadata{
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},

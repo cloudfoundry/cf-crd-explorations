@@ -52,7 +52,7 @@ func XTestPresenterFormatting(t *testing.T) {
 	//emptyCFAPIPresenterPackageResource.Data.Type = "docker"
 	emptyCFAPIPresenterPackageResource.Data.Image = "\"registry/image:latest\""
 	emptyCFAPIPresenterPackageResource.Data.Checksum = &handlers.CFAPIPresenterChecksum{}
-	emptyCFAPIPresenterPackageResource.Links = make(map[string]handlers.CFAPIAppLink, 0)
+	emptyCFAPIPresenterPackageResource.Links = make(map[string]handlers.CFAPILink, 0)
 	fmt.Printf("%+v\n", emptyCFAPIPresenterPackageResource)
 	formattedJSON, _ := json.MarshalIndent(emptyCFAPIPresenterPackageResource, "", "    ")
 	fmt.Printf("%+v\n", string(formattedJSON))
@@ -65,7 +65,7 @@ func XTestPresenterFormatting(t *testing.T) {
 func TestAppPresenterFormatting(t *testing.T) {
 	// Create empty CFAPIPresenterPackageResource
 	emptyCFAPIPresenterAppResource := handlers.CFAPIPresenterAppResource{
-		Links: map[string]handlers.CFAPIAppLink{},
+		Links: map[string]handlers.CFAPILink{},
 		Metadata: handlers.CFAPIMetadata{
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
