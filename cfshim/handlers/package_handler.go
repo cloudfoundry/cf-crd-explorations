@@ -293,7 +293,7 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	packageGuid := vars["guid"]
 	ctx := r.Context()
 
-	packages, err := p.getPackagesListFromQuery(map[string][]string{
+	packages, err := getPackagesListFromQuery(&p.Client, map[string][]string{
 		"guids": {packageGuid},
 	})
 	if len(packages) == 0 {
@@ -308,7 +308,7 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	}
 	defer packageBitsFile.Close()
 
-	tmpFile, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("package-%s-", packageGuid))
+	tmpFile, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("package-%s", packageGuid))
 	if err != nil {
 		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
@@ -366,7 +366,6 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	updatedPkg := pkg.DeepCopy()
-	// TODO: Update Package CR spec on K8s
 	updatedPkg.Spec.Source = appsv1alpha1.PackageSource{
 		Registry: appsv1alpha1.Registry{
 			Image:            ref.Name(),
@@ -397,39 +396,9 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Probably punting on this until the GET /v3/packages/:guid endpoint is implemented
-	// NOTE : based on knowledge shared by Birdrock about CREATE writing to etcd and GET/LIST reading from cache, which\
-	//		  can result in cache miss should it be sufficient to return the updated object itself rather than\
-	// 		  invoking the GET/LIST?
-
 	formattedMatchingPackage := formatPresenterPackageResponse(updatedPkg)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(formattedMatchingPackage)
-}
-
-// getPackageListFromQuery takes URL query parameters and queries the K8s Client for all Packages
-// builds a filter based on params and walks through, placing every match into the returned list of Packages
-// returns an error if something went wrong with the K8s query
-func (p *PackageHandler) getPackagesListFromQuery(queryParameters map[string][]string) ([]*appsv1alpha1.Package, error) {
-	var filter Filter = &filters.PackageFilter{
-		QueryParameters: queryParameters,
-	}
-
-	// Get all the CF Apps from K8s API store in AllPackages which contains Items: []App
-	AllPackages := &appsv1alpha1.PackageList{}
-	err := p.Client.List(context.Background(), AllPackages)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching app: %v", err)
-	}
-
-	// Apply filter to AllPackages and store result in matchedPackages
-	var matchedPackages []*appsv1alpha1.Package
-	for i, _ := range AllPackages.Items {
-		if filter.Filter(&AllPackages.Items[i]) {
-			matchedPackages = append(matchedPackages, &AllPackages.Items[i])
-		}
-	}
-	return matchedPackages, nil
 }
 
 func derivePackageState(Conditions []metav1.Condition) string {
