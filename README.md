@@ -39,6 +39,22 @@ Deploy CRDs to K8s in current Kubernetes context
 make install
 ```
 
+Install prerequisites, kpack & eirini, as well as the validating webhook for cf apps:
+
+* If on Mac, you should confirm that your openssl version is > `3.0` with `openssl version`
+  * To install the latest openssl version on Mac run:
+    ```  
+    brew install libressl
+    echo 'export PATH="/usr/local/opt/libressl/bin:$PATH"' >> ~/.bash_profile
+    export PATH="/usr/local/opt/libressl/bin:$PATH"
+    ```
+
+Run the hack script to install prerequsites. Below `PATH_TO_GCR_JSON` is a path to the file containing your registry credentials where kpack can push built images.
+```
+hack/install-dependencies.sh -g "$PATH_TO_GCR_JSON"
+```
+
+
 ## Running the API and controllers
 
 ### Running locally

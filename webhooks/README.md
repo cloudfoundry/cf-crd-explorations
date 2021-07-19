@@ -8,24 +8,6 @@ Here you will find instructions for setting up and deploying the validation webh
 
 ## Trying it out
 
-### Installation
-#### Generate Certificates
-```
-./hack/generate_certs.sh
-```
-
-Substitute the value for "caBundle" key in `./config/webhook/app-validation.yaml`
-with what is stored in your paste buffer
-
-
-We need to create a Secret to place the certificates
-
-```
-kubectl create secret generic app-validation-webhook -n default \
-  --from-file=key.pem=certs/app-validation-webhook-key.pem \
-  --from-file=cert.pem=certs/app-validation-webhook-crt.pem
-```
-
 ### Development Changes
 If you are making any changes to the webhook, follow instruction below to build a new image and publish to the registry
 
@@ -37,25 +19,13 @@ docker push relintdockerhubpushbot/app-validation-webhook:dev
 
 ### Deploying Webhook
 
-Note: Be sure to update the `webhooks.name` in `config/webhook/app-validation.yaml` to point to the configured apps domain for your environment. 
+To deploy the webhook, run the `hack/install-dependencies.sh` script - it will also configure the webhook with a self-signed certificate within the namespace `default`.
 
-Before:
-```
-webhooks:
-  - name: app-validation-webhook.INSERT_APPS_DOMAIN_HERE
-```
-After(example):
-```
-webhooks:
-  - name: app-validation-webhook.beatable-spacesuit.k8s-dev.relint.rocks
-```
 
-To deploy the Webhook:
-
+Example:
 ```
-k apply -f ./config/webhook
+hack/install-dependencies.sh -g "$PATH_TO_GCR_JSON"
 ```
-
 
 ### Testing the Webhook
 

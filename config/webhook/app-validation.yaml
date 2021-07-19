@@ -1,3 +1,5 @@
+
+#@ load("@ytt:data", "data")
 ---
 apiVersion: v1
 kind: Service
@@ -10,7 +12,7 @@ spec:
   ports:
     - name: webhook
       port: 443
-      # This is hardcoded in main.go for now
+      #! This is hardcoded in main.go for now
       targetPort: 82
   selector:
     name: app-validation-webhook
@@ -58,7 +60,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: app-validation-webhook
 webhooks:
-  - name: app-validation-webhook.INSERT_APPS_DOMAIN_HERE
+  - name: app-validation-webhook.default.svc
     admissionReviewVersions:
       - v1
     clientConfig:
@@ -66,12 +68,12 @@ webhooks:
         name: app-validation-webhook
         namespace: default
         path: "/validate"
-      caBundle: "INSERT_CA_BUNDLE_VALUE_HERE"
+      caBundle: #@ data.values.webhook_ca_cert
+      #! "INSERT_CA_BUNDLE_VALUE_HERE"
     rules:
       - operations: ["CREATE"]
         apiGroups: ["apps.cloudfoundry.org"]
         apiVersions: ["v1alpha1"]
         resources: ["apps"]
-    #Set failurePolicy to Fail for debugging. The default value is "Ignore"
     failurePolicy: Fail
     sideEffects: None
