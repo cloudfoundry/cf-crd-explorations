@@ -68,8 +68,7 @@ kubectl create ns cf-workloads
 curl https://raw.githubusercontent.com/cloudfoundry-incubator/eirini-controller/master/deployment/scripts/generate-secrets.sh | bash -s - "*.eirini-controller.svc"
 
 VERSION=0.1.0
-WEBHOOK_CA_BUNDLE="$(kubectl get secret -n eirini-controller eirini-instance-index-env-injector-certs -o jsonpath="{.data['tls\.ca']}")"
-RESOURCE_VALIDATOR_CA_BUNDLE="$(kubectl get secret -n eirini-controller eirini-resource-validator-certs -o jsonpath="{.data['tls\.ca']}")"
+WEBHOOK_CA_BUNDLE="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
 
 helm install eirini-controller https://github.com/cloudfoundry-incubator/eirini-controller/releases/download/v$VERSION/eirini-controller-$VERSION.tgz \
   --namespace eirini-controller \
@@ -79,3 +78,28 @@ helm install eirini-controller https://github.com/cloudfoundry-incubator/eirini-
 echo "******************************"
 echo "Installed and configured Eirini"
 echo "******************************"
+
+# Make install the CF CRDs
+make install
+
+echo "******************************"
+echo "Installed CF CRDS"
+echo "******************************"
+
+
+# CF App Validation Webhook
+# generate the certs
+hack/generate_certs.sh
+# cert path: certs/ca.crt
+
+# create secret
+kubectl create secret generic app-validation-webhook -n default --from-file=key.pem=certs/app-validation-webhook-key.pem --from-file=cert.pem=certs/app-validation-webhook-crt.pem
+
+# kubectl apply the webhook files but with ytt subbing out values
+kubectl apply -f <(ytt -f config/webhook/app-validation.yaml --data-value "webhook_ca_cert=$(base64 -w 0 certs/ca.crt )")
+kubectl apply -f config/webhook/rbac.yaml
+
+echo "******************************"
+echo "Installed and configured CF App Validating Webhook"
+echo "******************************"
+
