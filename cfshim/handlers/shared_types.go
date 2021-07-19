@@ -44,6 +44,14 @@ type CFAPIAppRelationshipsSpaceData struct {
 	GUID string `json:"guid"`
 }
 
+type CFAPIAppRelationshipsDroplet struct {
+	Data CFAPIAppRelationshipsDropletData `json:"data"`
+}
+
+type CFAPIAppRelationshipsDropletData struct {
+	GUID string `json:"guid"`
+}
+
 type CFAPIAppLink struct {
 	Href   string `json:"href"`
 	Method string `json:"method,omitempty"`

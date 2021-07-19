@@ -49,3 +49,24 @@ func getAppListFromQuery(c *client.Client, queryParameters map[string][]string) 
 	}
 	return matchedApps, nil
 }
+
+func getDropletListFromQuery(c *client.Client, queryParameters map[string][]string) ([]*appsv1alpha1.Droplet, error) {
+	var filter Filter = &filters.DropletFilter{
+		QueryParameters: queryParameters,
+	}
+
+	AllDroplets := &appsv1alpha1.DropletList{}
+	err := (*c).List(context.Background(), AllDroplets)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching app: %v", err)
+	}
+
+	// Apply filter to AllApps and store result in matchedDroplets
+	var matchedDroplets []*appsv1alpha1.Droplet
+	for i, _ := range AllDroplets.Items {
+		if filter.Filter(&AllDroplets.Items[i]) {
+			matchedDroplets = append(matchedDroplets, &AllDroplets.Items[i])
+		}
+	}
+	return matchedDroplets, nil
+}
