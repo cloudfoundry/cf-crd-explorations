@@ -73,7 +73,8 @@ WEBHOOK_CA_BUNDLE="$(kubectl get secret -n eirini-controller eirini-webhooks-cer
 helm install eirini-controller https://github.com/cloudfoundry-incubator/eirini-controller/releases/download/v$VERSION/eirini-controller-$VERSION.tgz \
   --namespace eirini-controller \
   --set "webhook_ca_bundle=$WEBHOOK_CA_BUNDLE" \
-  --set "resource_validator_ca_bundle=$RESOURCE_VALIDATOR_CA_BUNDLE"
+  --set "resource_validator_ca_bundle=$RESOURCE_VALIDATOR_CA_BUNDLE" \
+  --set "workloads.namespaces={default}"
 
 echo "******************************"
 echo "Installed and configured Eirini"

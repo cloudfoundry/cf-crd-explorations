@@ -81,22 +81,6 @@ export PACKAGE_REGISTRY_USERNAME=_json_key
 export PACKAGE_REGISTRY_PASSWORD="$(cat ~/Downloads/greengrass_gcp_service_account.json)" 
 ```
 
-Then you will need to apply the sample kpack configuration:
-```
-kubectl apply -f config/samples/kpack/. --recursive
-```
-
-This config assumes you have added a `kubernetes.io/dockerconfigjson` secret named `kpack-registry-credentials` for
-interacting with the registry. Below is an example that uses a GCR service account:
-
-```
-kubectl create secret docker-registry kpack-registry-credentials \
---docker-username="_json_key" \
---docker-password="$(cat /path/to/service-account-key.json)" \
---docker-server=gcr.io \
---namespace default
-```
-
 To start the controller locally, run:
 
 ```
@@ -106,6 +90,7 @@ make run
 Apply sample instances of the resources.
 ```
 kubectl apply -f config/samples/cf-crds/. --recursive
+kubectl apply -f config/samples/supporting-objects/app_env_secret.yaml
 ```
 
 **Note:** If you want the sample app to be routable you must update the sample Route CR (config/samples/sample_app_route.yaml) to point to the configured apps domain for your environment. Since we're leveraging cf-for-k8s for its Eirini installation the easiest way to make the app routable is by using the existing cf-for-k8s RouteController and Route CR.
