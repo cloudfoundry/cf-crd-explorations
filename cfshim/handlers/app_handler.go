@@ -384,6 +384,7 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
 		return
 	}
+	matchedApp := matchedApps[0]
 
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -422,8 +423,9 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
 		return
 	}
+	matchedDroplet := matchedDroplets[0]
 
-	if matchedApps[0].ObjectMeta.Namespace != matchedDroplets[0].ObjectMeta.Namespace {
+	if matchedApp.ObjectMeta.Namespace != matchedDroplet.ObjectMeta.Namespace {
 		fmt.Println("droplet doesn't exit in the same namespace as app")
 		errorMessage = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 		errorTitle = "CF-UnprocessableEntity"
@@ -433,7 +435,7 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if matchedApps[0].ObjectMeta.Name != matchedDroplets[0].Spec.AppRef.Name {
+	if matchedApp.ObjectMeta.Name != matchedDroplet.Spec.AppRef.Name {
 		fmt.Println("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
 		errorMessage = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
 		errorTitle = "CF-UnprocessableEntity"
@@ -443,11 +445,11 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	matchedApps[0].Spec.CurrentDropletRef = appsv1alpha1.DropletReference{
+	matchedApp.Spec.CurrentDropletRef = appsv1alpha1.DropletReference{
 		Name: dropletRequest.Data.GUID,
 	}
 
-	err = a.Client.Update(context.Background(), matchedApps[0])
+	err = a.Client.Update(context.Background(), matchedApp)
 	if err != nil {
 		fmt.Printf("error updating App object: %v\n", err)
 		errorMessage = "Error updating app object"
@@ -460,7 +462,7 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
-	json.NewEncoder(w).Encode(formatSetDropletResponse(matchedApps[0]))
+	json.NewEncoder(w).Encode(formatSetDropletResponse(matchedApp))
 }
 
 func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *appsv1alpha1.App) {
