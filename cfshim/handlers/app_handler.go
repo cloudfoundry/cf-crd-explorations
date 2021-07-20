@@ -21,8 +21,9 @@ import (
 
 // Define the routes used in the REST endpoints
 const (
-	AppsEndpoint   = "/v3/apps"
-	GetAppEndpoint = AppsEndpoint + "/{guid}"
+	AppsEndpoint      = "/v3/apps"
+	GetAppEndpoint    = AppsEndpoint + "/{guid}"
+	SetCurrentDroplet = GetAppEndpoint + "/relationships/current_droplet"
 )
 
 type AppHandler struct {
@@ -347,6 +348,121 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.ReturnFormattedResponse(w, matchedApps[0])
+}
+
+func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
+
+	var matchedApps []*appsv1alpha1.App
+	var dropletRequest CFAPIAppRelationshipsDroplet
+	var errorMessage string
+	var errorTitle string
+	var errorHeader int
+	var errorCode int
+
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+
+	queryParameters := map[string][]string{
+		"guids": {appGUID},
+	}
+	formatQueryParams(queryParameters)
+
+	matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
+	if err != nil {
+		fmt.Printf("error fetching apps from query: %s\n", err)
+		errorMessage = "Error fetching app"
+		errorTitle = "CF-ServerError"
+		errorCode = 10001
+		errorHeader = 500
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	} else if len(matchedApps) == 0 {
+		errorMessage = fmt.Sprintf("App with guid %s not found", appGUID)
+		errorTitle = "CF-ResourceNotFound"
+		errorCode = 10010
+		errorHeader = 404
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	}
+	matchedApp := matchedApps[0]
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	err = decoder.Decode(&dropletRequest)
+
+	if err != nil {
+		errorMessage = "Request invalid due to parse error: invalid request body"
+		errorTitle = "CF-MessageParseError"
+		errorCode = 1001
+		errorHeader = 422
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	}
+
+	queryParameters = map[string][]string{
+		"guids": {dropletRequest.Data.GUID},
+	}
+	formatQueryParams(queryParameters)
+
+	var matchedDroplets []*appsv1alpha1.Droplet
+	matchedDroplets, err = getDropletListFromQuery(&a.Client, queryParameters)
+	if err != nil {
+		fmt.Printf("error fetching droplets from query: %s\n", err)
+		errorMessage = "Error fetching droplet"
+		errorTitle = "CF-ServerError"
+		errorCode = 10001
+		errorHeader = 500
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	} else if len(matchedDroplets) == 0 {
+		fmt.Println("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+		errorMessage = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
+		errorTitle = "CF-UnprocessableEntity"
+		errorCode = 10008
+		errorHeader = 422
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	}
+	matchedDroplet := matchedDroplets[0]
+
+	if matchedApp.ObjectMeta.Namespace != matchedDroplet.ObjectMeta.Namespace {
+		fmt.Println("droplet doesn't exit in the same namespace as app")
+		errorMessage = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
+		errorTitle = "CF-UnprocessableEntity"
+		errorCode = 10008
+		errorHeader = 422
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	}
+
+	if matchedApp.ObjectMeta.Name != matchedDroplet.Spec.AppRef.Name {
+		fmt.Println("Unable to assign current droplet. Ensure the droplet exists and belongs to this app.")
+		errorMessage = "Unable to assign current droplet. Ensure the droplet exists and belongs to this app."
+		errorTitle = "CF-UnprocessableEntity"
+		errorCode = 10008
+		errorHeader = 422
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	}
+
+	matchedApp.Spec.CurrentDropletRef = appsv1alpha1.DropletReference{
+		Name: dropletRequest.Data.GUID,
+	}
+
+	err = a.Client.Update(context.Background(), matchedApp)
+	if err != nil {
+		fmt.Printf("error updating App object: %v\n", err)
+		errorMessage = "Error updating app object"
+		errorTitle = "CF-ServerError"
+		errorCode = 10001
+		errorHeader = 500
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	json.NewEncoder(w).Encode(formatSetDropletResponse(matchedApp))
 }
 
 func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *appsv1alpha1.App) {

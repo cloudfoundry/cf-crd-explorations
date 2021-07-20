@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -109,4 +110,25 @@ func getMatchingResources(c *client.Client, queryParameters map[string][]string,
 
 	}
 	return matchedPackages, nil
+}
+
+func getDropletListFromQuery(c *client.Client, queryParameters map[string][]string) ([]*appsv1alpha1.Droplet, error) {
+	var filter Filter = &filters.DropletFilter{
+		QueryParameters: queryParameters,
+	}
+
+	AllDroplets := &appsv1alpha1.DropletList{}
+	err := (*c).List(context.Background(), AllDroplets)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching app: %v", err)
+	}
+
+	// Apply filter to AllApps and store result in matchedDroplets
+	var matchedDroplets []*appsv1alpha1.Droplet
+	for i, _ := range AllDroplets.Items {
+		if filter.Filter(&AllDroplets.Items[i]) {
+			matchedDroplets = append(matchedDroplets, &AllDroplets.Items[i])
+		}
+	}
+	return matchedDroplets, nil
 }

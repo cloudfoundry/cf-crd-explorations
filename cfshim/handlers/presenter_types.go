@@ -148,3 +148,17 @@ type CFAPIPresenterChecksum struct {
 	Type  string  `json:"type"`
 	Value *string `json:"value"`
 }
+
+type CFAPIPresenterAppRelationshipsDroplet struct {
+	Data  CFAPIAppRelationshipsDropletData `json:"data"`
+	Links map[string]CFAPIAppLink          `json:"links"`
+}
+
+func formatSetDropletResponse(app *appsv1alpha1.App) CFAPIPresenterAppRelationshipsDroplet {
+	return CFAPIPresenterAppRelationshipsDroplet{
+		Data: CFAPIAppRelationshipsDropletData{
+			GUID: app.Spec.CurrentDropletRef.Name,
+		},
+		Links: map[string]CFAPIAppLink{},
+	}
+}
