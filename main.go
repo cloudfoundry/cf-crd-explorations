@@ -171,6 +171,7 @@ func main() {
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.UpdateAppsHandler).Methods("PUT")
 		myRouter.HandleFunc(handlers.GetPackageEndpoint, packageHandler.GetPackageHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.PackageEndpoint, packageHandler.CreatePackageHandler).Methods("POST")
+		myRouter.HandleFunc(handlers.UploadPackageEndpoint, packageHandler.UploadPackageHandler).Methods("POST")
 		log.Fatal(http.ListenAndServe(":9000", myRouter))
 	}()
 

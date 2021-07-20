@@ -1,27 +1,39 @@
 package handlers
 
 import (
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
+	"cloudfoundry.org/cf-crd-explorations/settings"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
-
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
+	"github.com/buildpacks/pack/pkg/archive"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/random"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"io"
+	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"net/http"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 // Define the routes used in the REST endpoints
 const (
-	PackageEndpoint    = "/v3/packages"
-	GetPackageEndpoint = PackageEndpoint + "/{guid}"
+	PackageEndpoint       = "/v3/packages"
+	UploadPackageEndpoint = "/v3/packages/{guid}/upload"
+	GetPackageEndpoint    = PackageEndpoint + "/{guid}"
 )
 
 type PackageHandler struct {
@@ -68,8 +80,7 @@ func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPack
 			//	it is used to format the JSON for bits and docker types differently
 			Type: string(pk.Spec.Type),
 		},
-		// TODO: State is missing from package spec!!!
-		State:     "",
+		State:     derivePackageState(pk.Status.Conditions),
 		CreatedAt: pk.CreationTimestamp.UTC().Format(time.RFC3339),
 		// TODO: Not sure how to get updated time, it is not present on CR for free
 		UpdatedAt: "",
@@ -273,4 +284,129 @@ func updateDockerPackageResponse(formattedPackage *CFAPIPresenterPackageResource
 // dumb helper function to make the secret name for a docker package in case we want to change it later.
 func generatePackageSecretName(packageGUID string) string {
 	return packageGUID + "-secret"
+}
+
+// POST /v3/packages/:guid/upload
+// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#upload-package-bits
+func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	packageGuid := vars["guid"]
+	ctx := r.Context()
+
+	packages, err := getPackagesListFromQuery(&p.Client, map[string][]string{
+		"guids": {packageGuid},
+	})
+	if len(packages) == 0 {
+		ReturnFormattedError(w, 404, "NotFound", "", 10000)
+	}
+	pkg := packages[0]
+
+	packageBitsFile, _, err := r.FormFile("bits")
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+	defer packageBitsFile.Close()
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), fmt.Sprintf("package-%s", packageGuid))
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+	defer os.Remove(tmpFile.Name())
+
+	fmt.Println("Created tmp file: " + tmpFile.Name())
+
+	if _, err = io.Copy(tmpFile, packageBitsFile); err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	// Close the packageBitsFile
+	if err := tmpFile.Close(); err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	image, err := random.Image(0, 0)
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	noopFilter := func(string) bool { return true }
+	layer, err := tarball.LayerFromReader(archive.ReadZipAsTar(tmpFile.Name(), "/", 0, 0, -1, true, noopFilter))
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	image, err = mutate.AppendLayers(image, layer)
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	authenticator := authn.FromConfig(authn.AuthConfig{
+		Username: settings.GlobalSettings.PackageRegistryUsername,
+		Password: settings.GlobalSettings.PackageRegistryPassword,
+	})
+	registryBasePath := settings.GlobalSettings.PackageRegistryTagBase
+
+	ref, err := name.ParseReference(fmt.Sprintf("%s/%s", registryBasePath, packageGuid))
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	err = remote.Write(ref, image, remote.WithAuth(authenticator))
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	updatedPkg := pkg.DeepCopy()
+	updatedPkg.Spec.Source = appsv1alpha1.PackageSource{
+		Registry: appsv1alpha1.Registry{
+			Image:            ref.Name(),
+			ImagePullSecrets: nil, // TODO: What goes here? Maybe take this secret name as a config?
+		},
+	}
+	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
+		Type:    "Succeeded",
+		Status:  metav1.ConditionTrue,
+		Reason:  "Uploaded",
+		Message: "",
+	})
+	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
+		Type:    "Ready",
+		Status:  metav1.ConditionTrue,
+		Reason:  "Uploaded",
+		Message: "",
+	})
+	meta.SetStatusCondition(&updatedPkg.Status.Conditions, metav1.Condition{
+		Type:    "Uploaded",
+		Status:  metav1.ConditionTrue,
+		Reason:  "Uploaded",
+		Message: "",
+	})
+	err = p.Client.Patch(ctx, updatedPkg, client.MergeFrom(pkg))
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	formattedMatchingPackage := formatPresenterPackageResponse(updatedPkg)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(formattedMatchingPackage)
+}
+
+func derivePackageState(Conditions []metav1.Condition) string {
+	if meta.IsStatusConditionTrue(Conditions, "Succeeded") &&
+		meta.IsStatusConditionTrue(Conditions, "Uploaded") &&
+		meta.IsStatusConditionTrue(Conditions, "Ready") {
+		return "READY"
+	} else {
+		return "AWAITING_UPLOAD"
+	}
 }

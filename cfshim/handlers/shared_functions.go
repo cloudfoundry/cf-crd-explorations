@@ -1,13 +1,12 @@
 package handlers
 
 import (
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -48,4 +47,66 @@ func getAppListFromQuery(c *client.Client, queryParameters map[string][]string) 
 		}
 	}
 	return matchedApps, nil
+}
+
+func getPackagesListFromQuery(c *client.Client, queryParameters map[string][]string) ([]*appsv1alpha1.Package, error) {
+	var filter Filter = &filters.PackageFilter{
+		QueryParameters: queryParameters,
+	}
+
+	AllPackages := &appsv1alpha1.PackageList{}
+	err := (*c).List(context.Background(), AllPackages)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching package: %v", err)
+	}
+
+	// Apply filter to AllPackages and store result in matchedPackages
+	var matchedPackages []*appsv1alpha1.Package
+	for i, _ := range AllPackages.Items {
+		if filter.Filter(&AllPackages.Items[i]) {
+			matchedPackages = append(matchedPackages, &AllPackages.Items[i])
+		}
+	}
+	return matchedPackages, nil
+}
+
+func getMatchingResources(c *client.Client, queryParameters map[string][]string, i interface{}) ([]interface{}, error) {
+	var filter Filter
+	var matchedPackages []interface{}
+
+	switch i.(type) {
+
+	case appsv1alpha1.Package:
+		filter = &filters.PackageFilter{
+			QueryParameters: queryParameters,
+		}
+
+		objectlist := &appsv1alpha1.PackageList{}
+		err := (*c).List(context.Background(), objectlist)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching package: %v", err)
+		}
+		for i, _ := range objectlist.Items {
+			if filter.Filter(&objectlist.Items[i]) {
+				matchedPackages = append(matchedPackages, &objectlist.Items[i])
+			}
+		}
+	case appsv1alpha1.App:
+		filter = &filters.AppFilter{
+			QueryParameters: queryParameters,
+		}
+
+		objectlist := &appsv1alpha1.AppList{}
+		err := (*c).List(context.Background(), objectlist)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching package: %v", err)
+		}
+		for i, _ := range objectlist.Items {
+			if filter.Filter(&objectlist.Items[i]) {
+				matchedPackages = append(matchedPackages, &objectlist.Items[i])
+			}
+		}
+
+	}
+	return matchedPackages, nil
 }
