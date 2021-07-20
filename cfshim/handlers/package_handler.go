@@ -1,12 +1,17 @@
 package handlers
 
 import (
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
-	"cloudfoundry.org/cf-crd-explorations/settings"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
+	"cloudfoundry.org/cf-crd-explorations/settings"
 	"github.com/buildpacks/pack/pkg/archive"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -16,17 +21,12 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"io"
-	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"net/http"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 // Define the routes used in the REST endpoints
@@ -67,49 +67,6 @@ func (p *PackageHandler) ReturnFormattedResponse(w http.ResponseWriter, formatte
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	json.NewEncoder(w).Encode(*formattedPackage)
-}
-
-// formatPresenterPackageResponse Given a CR package, convert to the CF API response format:
-// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#create-a-package
-func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPackageResource {
-	toReturn := CFAPIPresenterPackageResource{
-		GUID: pk.Name,
-		Type: string(pk.Spec.Type),
-		Data: CFAPIPresenterPackageData{
-			// This Data.Type field is hidden from the Marshalled JSON
-			//	it is used to format the JSON for bits and docker types differently
-			Type: string(pk.Spec.Type),
-		},
-		State:     derivePackageState(pk.Status.Conditions),
-		CreatedAt: pk.CreationTimestamp.UTC().Format(time.RFC3339),
-		// TODO: Not sure how to get updated time, it is not present on CR for free
-		UpdatedAt: "",
-		Relationships: CFAPIPackageAppRelationships{
-			App: CFAPIPackageAppRelationshipsApp{
-				Data: CFAPIPackageAppRelationshipsAppData{
-					GUID: pk.Spec.AppRef.Name,
-				},
-			},
-		},
-		// URL information about the server where you sub in the package GUID..
-		Links: map[string]CFAPILink{},
-		Metadata: CFAPIMetadata{
-			Labels:      map[string]string{},
-			Annotations: map[string]string{},
-		},
-	}
-	if toReturn.Type == "bits" {
-		toReturn.Data.Checksum = &CFAPIPresenterChecksum{
-			Type:  "sha256",
-			Value: nil,
-		}
-		toReturn.Data.Error = nil
-	} else if toReturn.Type == "docker" {
-		toReturn.Data.Image = pk.Spec.Source.Registry.Image
-		toReturn.State = "READY"
-	}
-
-	return toReturn
 }
 
 // GetPackageHandler is for getting a single package from the guid
