@@ -39,18 +39,46 @@ Deploy CRDs to K8s in current Kubernetes context
 make install
 ```
 
+Install prerequisites, kpack & eirini, as well as the validating webhook for cf apps:
+
+* If on Mac, you should confirm that your openssl version is > `3.0` with `openssl version`
+  * To install the latest openssl version on Mac run:
+    ```  
+    brew install libressl
+    echo 'export PATH="/usr/local/opt/libressl/bin:$PATH"' >> ~/.bash_profile
+    export PATH="/usr/local/opt/libressl/bin:$PATH"
+    ```
+
+Run the hack script to install prerequsites. Below `PATH_TO_GCR_JSON` is a path to the file containing your registry credentials where kpack can push built images.
+```
+hack/install-dependencies.sh -g "$PATH_TO_GCR_JSON"
+```
+
+
 ## Running the API and controllers
 
 ### Running locally
 Run controllers locally against a targeting (via kubeconfig) K8s cluster
 
-The spike code converts Apps, Processes, and Droplets into Eirini LRP resources which requires the Eirini LRP controller (see cluster pre-requisites above for information on how to install it).
+The spike code converts Apps, Processes, and Droplets into kubernetes resources, including Eirini LRP resources which
+require the Eirini LRP controller (see cluster pre-requisites above for information on how to install it).
 
-It also produces staged Droplets from Packages and Builds using Kpack. You will need to configure the `REGISTRY_TAG_BASE` environment variable to let the controller know where Kpack built images should be published.
+It also produces staged Droplets from Packages and Builds using Kpack.
+
+It requires the following environment variables:
+  - `REGISTRY_TAG_BASE`: Where Kpack built images should be published.
+  - `PACKAGE_REGISTRY_TAG_BASE`: The app converts packages into single layer OCI images. This is the where these images should be published.
+  - `PACKAGE_REGISTRY_USERNAME`: The user for the image registry used to store package source images.
+  - `PACKAGE_REGISTRY_PASSWORD`: The password for the image registry used to store package source images.
 
 ```
-# Example: export REGISTRY_TAG_BASE=gcr.io/cf-relint-greengrass
-export REGISTRY_TAG_BASE=<your-container-registry-here>
+# Example:
+export REGISTRY_TAG_BASE=gcr.io/cf-relint-greengrass/cf-crd-staging-spike/kpack
+export PACKAGE_REGISTRY_TAG_BASE="gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages"
+export PACKAGE_REGISTRY_USERNAME=_json_key
+
+# Probably the same file you use for the hack/install-dependencies.sh script
+export PACKAGE_REGISTRY_PASSWORD="$(cat ~/Downloads/greengrass_gcp_service_account.json)" 
 ```
 
 Then you will need to apply the sample kpack configuration:
@@ -58,7 +86,8 @@ Then you will need to apply the sample kpack configuration:
 kubectl apply -f config/samples/kpack/. --recursive
 ```
 
-This config assumes you have added a `kubernetes.io/dockerconfigjson` secret named `kpack-registry-credentials` for interacting with the registry. Below is an example that uses a GCR service account:
+This config assumes you have added a `kubernetes.io/dockerconfigjson` secret named `kpack-registry-credentials` for
+interacting with the registry. Below is an example that uses a GCR service account:
 
 ```
 kubectl create secret docker-registry kpack-registry-credentials \

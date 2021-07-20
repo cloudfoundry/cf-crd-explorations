@@ -18,6 +18,3 @@ openssl req -new -key certs/app-validation-webhook-key.pem -subj "/CN=app-valida
 
 # CREATE THE CERT SIGNING THE CSR WITH THE CA CREATED BEFORE
 openssl x509 -req -in app-validation-webhook.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/app-validation-webhook-crt.pem
-
-# INJECT CA IN THE WEBHOOK CONFIGURATION
-cat certs/ca.crt | base64 | tr -d '\n' | pbcopy
