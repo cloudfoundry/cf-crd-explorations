@@ -102,18 +102,6 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// formatQueryParams takes a map of string query parameters and splits any entries with commas in them in-place
-func formatQueryParams(queryParams map[string][]string) {
-	for key, value := range queryParams {
-		var newParamsList []string
-		for _, parameter := range value {
-			var commaSeparatedParamsFromValue []string = strings.Split(parameter, ",")
-			newParamsList = append(newParamsList, commaSeparatedParamsFromValue...)
-		}
-		queryParams[key] = newParamsList
-	}
-}
-
 func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	ctx := context.Background()

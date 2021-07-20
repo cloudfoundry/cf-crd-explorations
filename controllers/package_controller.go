@@ -54,8 +54,20 @@ func (r *PackageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
+var (
+	metadataName = "metadata.name"
+)
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *PackageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Set up field indexer for for metadata.name
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1alpha1.Package{}, metadataName, func(rawObj client.Object) []string {
+		pkg := rawObj.(*appsv1alpha1.Package)
+		return []string{pkg.ObjectMeta.Name}
+	}); err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appsv1alpha1.Package{}).
 		Complete(r)

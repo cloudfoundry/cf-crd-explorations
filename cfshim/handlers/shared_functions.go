@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
@@ -131,4 +132,41 @@ func getDropletListFromQuery(c *client.Client, queryParameters map[string][]stri
 		}
 	}
 	return matchedDroplets, nil
+}
+
+// getBuildListFromQuery takes URL query parameters and queries the K8s Client for all Builds
+// builds a filter based on params and walks through, placing every match into the returned list of Builds
+// returns an error if something went wrong with the K8s query
+func getBuildListFromQuery(c *client.Client, queryParameters map[string][]string) ([]*appsv1alpha1.Build, error) {
+	var filter Filter = &filters.BuildFilter{
+		QueryParameters: queryParameters,
+	}
+
+	// Get all the CF Apps from K8s API store in AllApps which contains Items: []App
+	AllBuilds := &appsv1alpha1.BuildList{}
+	err := (*c).List(context.Background(), AllBuilds)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching app: %v", err)
+	}
+
+	// Apply filter to AllApps and store result in matchedBuilds
+	var matchedBuilds []*appsv1alpha1.Build
+	for i, _ := range AllBuilds.Items {
+		if filter.Filter(&AllBuilds.Items[i]) {
+			matchedBuilds = append(matchedBuilds, &AllBuilds.Items[i])
+		}
+	}
+	return matchedBuilds, nil
+}
+
+// formatQueryParams takes a map of string query parameters and splits any entries with commas in them in-place
+func formatQueryParams(queryParams map[string][]string) {
+	for key, value := range queryParams {
+		var newParamsList []string
+		for _, parameter := range value {
+			var commaSeparatedParamsFromValue []string = strings.Split(parameter, ",")
+			newParamsList = append(newParamsList, commaSeparatedParamsFromValue...)
+		}
+		queryParams[key] = newParamsList
+	}
 }

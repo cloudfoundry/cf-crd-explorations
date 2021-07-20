@@ -63,7 +63,7 @@ func main() {
 	// initialize settings from env variables
 	loadedSettings, err := settings.Load()
 	if err != nil {
-		setupLog.Error(err, "error loading settings from environment")
+		panic(err.Error())
 	}
 	settings.GlobalSettings = loadedSettings
 
@@ -164,6 +164,9 @@ func main() {
 		packageHandler := &handlers.PackageHandler{
 			Client: mgr.GetClient(),
 		}
+		buildHandler := &handlers.BuildHandler{
+			Client: mgr.GetClient(),
+		}
 		myRouter := mux.NewRouter()
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.GetAppHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.ListAppsHandler).Methods("GET")
@@ -173,6 +176,8 @@ func main() {
 		myRouter.HandleFunc(handlers.GetPackageEndpoint, packageHandler.GetPackageHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.PackageEndpoint, packageHandler.CreatePackageHandler).Methods("POST")
 		myRouter.HandleFunc(handlers.UploadPackageEndpoint, packageHandler.UploadPackageHandler).Methods("POST")
+		myRouter.HandleFunc(handlers.GetBuildsEndpoint, buildHandler.GetBuildHandler).Methods("GET")
+		myRouter.HandleFunc(handlers.BuildsEndpoint, buildHandler.CreateBuildsHandler).Methods("POST")
 		log.Fatal(http.ListenAndServe(":9000", myRouter))
 	}()
 
