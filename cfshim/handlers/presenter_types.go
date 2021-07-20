@@ -22,7 +22,18 @@ type CFAPIPresenterAppResource struct {
 	UpdatedAt     string                     `json:"updated_at"`
 	Lifecycle     CFAPIPresenterAppLifecycle `json:"lifecycle,omitempty"`
 	Relationships CFAPIAppRelationships      `json:"relationships"`
-	Links         map[string]CFAPIAppLink    `json:"links"`
+	Links         map[string]CFAPILink       `json:"links"`
+	Metadata      CFAPIMetadata              `json:"metadata"`
+}
+
+type CFAPIPresenterBuildResource struct {
+	GUID          string                     `json:"guid"`
+	State         string                     `json:"state"`
+	CreatedAt     string                     `json:"created_at"`
+	UpdatedAt     string                     `json:"updated_at"`
+	Lifecycle     CFAPIPresenterAppLifecycle `json:"lifecycle,omitempty"`
+	Relationships CFAPIAppRelationships      `json:"relationships"`
+	Links         map[string]CFAPILink       `json:"links"`
 	Metadata      CFAPIMetadata              `json:"metadata"`
 }
 
@@ -85,7 +96,42 @@ func formatAppToPresenter(app *appsv1alpha1.App) CFAPIPresenterAppResource {
 			},
 		},
 		// URL information about the server where you sub in the app GUID..
-		Links: map[string]CFAPIAppLink{},
+		Links: map[string]CFAPILink{},
+		Metadata: CFAPIMetadata{
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+		},
+	}
+}
+
+func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
+	return CFAPIBuildResource{
+		GUID:      build.Name,
+		State:     "",
+		CreatedAt: build.CreationTimestamp.Format(time.RFC3339),
+		UpdatedAt: "",
+		Lifecycle: CFAPILifecycle{
+			Type: string(build.Spec.Type),
+			Data: CFAPIBuildLifecycleData{
+				Buildpacks: build.Spec.LifecycleData.Buildpacks,
+				Stack:      build.Spec.LifecycleData.Stack,
+			},
+		},
+		Package: &CFAPIBuildPackage{
+			GUID: build.Spec.AppRef.Name,
+		},
+		Droplet: CFAPIBuildDroplet{
+			GUID: "NOT CURRENTLY IMPLEMENTED",
+		},
+		Relationships: CFAPIBuildRelationships{
+			App: CFAPIBuildRelationshipsApps{
+				Data: CFAPIBuildRelationshipsAppsData{
+					GUID: build.Spec.AppRef.Name,
+				},
+			},
+		},
+		// URL information about the server where you sub in the app GUID..
+		Links: map[string]CFAPILink{},
 		Metadata: CFAPIMetadata{
 			Labels:      map[string]string{},
 			Annotations: map[string]string{},
@@ -106,7 +152,7 @@ type CFAPIPresenterPackageResource struct {
 	CreatedAt     string                       `json:"created_at"`
 	UpdatedAt     string                       `json:"updated_at"`
 	Relationships CFAPIPackageAppRelationships `json:"relationships"`
-	Links         map[string]CFAPIAppLink      `json:"links"`
+	Links         map[string]CFAPILink         `json:"links"`
 	Metadata      CFAPIMetadata                `json:"metadata"`
 }
 
@@ -151,7 +197,7 @@ type CFAPIPresenterChecksum struct {
 
 type CFAPIPresenterAppRelationshipsDroplet struct {
 	Data  CFAPIAppRelationshipsDropletData `json:"data"`
-	Links map[string]CFAPIAppLink          `json:"links"`
+	Links map[string]CFAPILink             `json:"links"`
 }
 
 func formatSetDropletResponse(app *appsv1alpha1.App) CFAPIPresenterAppRelationshipsDroplet {
@@ -159,6 +205,6 @@ func formatSetDropletResponse(app *appsv1alpha1.App) CFAPIPresenterAppRelationsh
 		Data: CFAPIAppRelationshipsDropletData{
 			GUID: app.Spec.CurrentDropletRef.Name,
 		},
-		Links: map[string]CFAPIAppLink{},
+		Links: map[string]CFAPILink{},
 	}
 }

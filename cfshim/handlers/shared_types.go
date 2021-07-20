@@ -5,43 +5,14 @@ type Filter interface {
 	Filter(interface{}) bool
 }
 
-type CFAPIAppResource struct {
-	GUID          string                  `json:"guid"`
-	Name          string                  `json:"name"`
-	State         string                  `json:"state"`
-	CreatedAt     string                  `json:"created_at"`
-	UpdatedAt     string                  `json:"updated_at"`
-	Lifecycle     CFAPIAppLifecycle       `json:"lifecycle,omitempty"`
-	Relationships CFAPIAppRelationships   `json:"relationships"`
-	Links         map[string]CFAPIAppLink `json:"links"`
-	Metadata      CFAPIMetadata           `json:"metadata"`
-}
-
-type CFAPIAppResourceWithEnvVars struct {
-	CFAPIAppResource
-	EnvironmentVariables map[string]string `json:"environment_variables,omitempty"`
+type CFAPILifecycle struct {
+	Type string                  `json:"type"`
+	Data CFAPIBuildLifecycleData `json:"data"`
 }
 
 type CFAPIAppLifecycle struct {
 	Type string                `json:"type"`
 	Data CFAPIAppLifecycleData `json:"data"`
-}
-
-type CFAPIAppLifecycleData struct {
-	Buildpacks []string `json:"buildpacks,omitempty"`
-	Stack      string   `json:"stack,omitempty"`
-}
-
-type CFAPIAppRelationships struct {
-	Space CFAPIAppRelationshipsSpace `json:"space"`
-}
-
-type CFAPIAppRelationshipsSpace struct {
-	Data CFAPIAppRelationshipsSpaceData `json:"data"`
-}
-
-type CFAPIAppRelationshipsSpaceData struct {
-	GUID string `json:"guid"`
 }
 
 type CFAPIAppRelationshipsDroplet struct {
@@ -52,7 +23,7 @@ type CFAPIAppRelationshipsDropletData struct {
 	GUID string `json:"guid"`
 }
 
-type CFAPIAppLink struct {
+type CFAPILink struct {
 	Href   string `json:"href"`
 	Method string `json:"method,omitempty"`
 }
