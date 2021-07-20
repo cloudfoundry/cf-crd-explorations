@@ -106,6 +106,7 @@ func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPack
 		toReturn.Data.Error = nil
 	} else if toReturn.Type == "docker" {
 		toReturn.Data.Image = pk.Spec.Source.Registry.Image
+		toReturn.State = "READY"
 	}
 
 	return toReturn
