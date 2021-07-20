@@ -1,12 +1,17 @@
 package main
 
 import (
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	"cloudfoundry.org/cf-crd-explorations/webhooks/validate"
-	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
+
+	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	"cloudfoundry.org/cf-crd-explorations/webhooks/validate"
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -16,12 +21,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"log"
-	"net/http"
-	"os"
-	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 var (
@@ -35,7 +35,6 @@ func init() {
 
 	utilruntime.Must(appsv1alpha1.AddToScheme(scheme))
 
-	utilruntime.Must(eiriniv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -50,7 +49,7 @@ func main() {
 
 	_, err := tls.LoadX509KeyPair(tlscert, tlskey)
 	if err != nil {
-		fmt.Printf("Filed to load key pair: %v", err)
+		fmt.Printf("Failed to load key pair: %v", err)
 	}
 
 	useKubeConfig := os.Getenv("USE_KUBECONFIG")

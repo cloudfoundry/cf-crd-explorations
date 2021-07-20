@@ -56,7 +56,7 @@ func (a *AppValidator) AppValidation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	appName := appRequest.Spec.Name
-	//appNamespace := appRequest.GetNamespace()
+	appNamespace := appRequest.Namespace
 
 	queryParameters := map[string][]string{
 		"names": {appName},
@@ -69,37 +69,35 @@ func (a *AppValidator) AppValidation(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("********* About to make a GET request *******************")
 
 	AllApps := &appsv1alpha1.AppList{}
-	err := a.KubeClient.List(context.Background(), AllApps)
+	err := a.KubeClient.List(context.Background(), AllApps, client.InNamespace(appNamespace))
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError) // What should the error be?
 		errorMessage := fmt.Sprintf("error fetching app: %v\n", err)
 		json.NewEncoder(w).Encode(errorMessage)
-		fmt.Printf(errorMessage)
+		fmt.Print(errorMessage)
 		return
 	}
 
-	fmt.Printf("******************** Fetching all Apps in default namespace %v", AllApps)
+	fmt.Printf("******************** Fetching all Apps in %s namespace %v", appNamespace, AllApps)
 
-	// Apply filter to AllApps and store result in matchedApps
-	var matchedApps []*appsv1alpha1.App
-	fmt.Printf("%v\n", matchedApps)
+	// Check if any of the apps in the namespace match the spec.name filter
+	var arResponseAllowed bool = true
 	for i, _ := range AllApps.Items {
 		if filter.Filter(&AllApps.Items[i]) {
-			matchedApps = append(matchedApps, &AllApps.Items[i])
+			fmt.Printf("matched app: %v", AllApps.Items[i])
+			arResponseAllowed = false
+			break
 		}
 	}
 
-	fmt.Printf("matched apps : %v", matchedApps)
-
-	var arResponseAllowed bool = false
+	// If there was a colliding name in the same namespace, the request is not allowed and we create a response
 	var arResponseResult *metav1.Status = nil
 
-	if len(matchedApps) == 0 {
-		arResponseAllowed = true
-	} else {
+	if !arResponseAllowed {
+		message := fmt.Sprintf("App with the name, %s already exists in namespace %s", appName, appNamespace)
 		arResponseResult = &metav1.Status{
-			Message: "App with the name already exists!",
+			Message: message,
 		}
 	}
 

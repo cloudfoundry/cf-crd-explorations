@@ -12,6 +12,7 @@ Here you will find instructions for setting up and deploying the validation webh
 If you are making any changes to the webhook, follow instruction below to build a new image and publish to the registry
 
 ```
+# make sure you are at the top level directory: cf-crd-explorations/
 pack build app-validation-webhook -B paketobuildpacks/builder:full -b gcr.io/paketo-buildpacks/go --env "BP_GO_TARGETS=./webhooks"
 docker tag app-validation-webhook relintdockerhubpushbot/app-validation-webhook:dev
 docker push relintdockerhubpushbot/app-validation-webhook:dev
