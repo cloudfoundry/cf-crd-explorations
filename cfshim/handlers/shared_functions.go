@@ -3,12 +3,15 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"cloudfoundry.org/cf-crd-explorations/cfshim/filters"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -24,6 +27,32 @@ func ReturnFormattedError(w http.ResponseWriter, status int, title string, detai
 			},
 		},
 	})
+}
+
+// getTimeLastUpdatedTimestamp takes the ObjectMeta from a CR and extracts the last updated time from its list of ManagedFields
+// Returns an error if the list is empty or the time could not be extracted
+func getTimeLastUpdatedTimestamp(metadata *metav1.ObjectMeta) (string, error) {
+	if len(metadata.ManagedFields) == 0 {
+		return "", errors.New("error, metadata.ManagedFields was empty")
+	}
+
+	latestTime := metadata.ManagedFields[0].Time
+	for i := 1; i < len(metadata.ManagedFields); i++ {
+		var currentTime = metadata.ManagedFields[i].Time
+		if latestTime == nil {
+			latestTime = currentTime
+		} else if currentTime != nil {
+			if currentTime.After(latestTime.Time) {
+				latestTime = currentTime
+			}
+		}
+	}
+
+	if latestTime == nil {
+		return "", errors.New("error, could not find a time in metadata.ManagedFields")
+	}
+
+	return latestTime.UTC().Format(time.RFC3339), nil
 }
 
 // getAppListFromQuery takes URL query parameters and queries the K8s Client for all Apps

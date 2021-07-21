@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
@@ -75,7 +76,7 @@ func (l CFAPIPresenterAppLifecycle) MarshalJSON() ([]byte, error) {
 }
 
 func formatAppToPresenter(app *appsv1alpha1.App) CFAPIPresenterAppResource {
-	return CFAPIPresenterAppResource{
+	toReturn := CFAPIPresenterAppResource{
 		GUID:      app.Name,
 		Name:      app.Spec.Name,
 		State:     string(app.Spec.State),
@@ -102,13 +103,19 @@ func formatAppToPresenter(app *appsv1alpha1.App) CFAPIPresenterAppResource {
 			Annotations: map[string]string{},
 		},
 	}
+	updatedAt, err := getTimeLastUpdatedTimestamp(&app.ObjectMeta)
+	if err != nil {
+		fmt.Printf("Error finding last updated time for app %s: %v\n", app.Name, err)
+	}
+	toReturn.UpdatedAt = updatedAt
+	return toReturn
 }
 
 func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
-	return CFAPIBuildResource{
+	toReturn := CFAPIBuildResource{
 		GUID:      build.Name,
 		State:     "",
-		CreatedAt: build.CreationTimestamp.Format(time.RFC3339),
+		CreatedAt: build.CreationTimestamp.UTC().Format(time.RFC3339),
 		UpdatedAt: "",
 		Lifecycle: CFAPILifecycle{
 			Type: string(build.Spec.Type),
@@ -137,6 +144,12 @@ func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
 			Annotations: map[string]string{},
 		},
 	}
+	updatedAt, err := getTimeLastUpdatedTimestamp(&build.ObjectMeta)
+	if err != nil {
+		fmt.Printf("Error finding last updated time for build %s: %v\n", build.Name, err)
+	}
+	toReturn.UpdatedAt = updatedAt
+	return toReturn
 }
 
 //---------------------------------------------------------------------------------------
@@ -195,6 +208,57 @@ type CFAPIPresenterChecksum struct {
 	Value *string `json:"value"`
 }
 
+// formatPresenterPackageResponse Given a CR package, convert to the CF API response format:
+// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#create-a-package
+func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPackageResource {
+	toReturn := CFAPIPresenterPackageResource{
+		GUID: pk.Name,
+		Type: string(pk.Spec.Type),
+		Data: CFAPIPresenterPackageData{
+			// This Data.Type field is hidden from the Marshalled JSON
+			//	it is used to format the JSON for bits and docker types differently
+			Type: string(pk.Spec.Type),
+		},
+		State:     derivePackageState(pk.Status.Conditions),
+		CreatedAt: pk.CreationTimestamp.UTC().Format(time.RFC3339),
+		// TODO: Not sure how to get updated time, it is not present on CR for free
+		UpdatedAt: "",
+		Relationships: CFAPIPackageAppRelationships{
+			App: CFAPIPackageAppRelationshipsApp{
+				Data: CFAPIPackageAppRelationshipsAppData{
+					GUID: pk.Spec.AppRef.Name,
+				},
+			},
+		},
+		// URL information about the server where you sub in the package GUID..
+		Links: map[string]CFAPILink{},
+		Metadata: CFAPIMetadata{
+			Labels:      map[string]string{},
+			Annotations: map[string]string{},
+		},
+	}
+	if toReturn.Type == "bits" {
+		toReturn.Data.Checksum = &CFAPIPresenterChecksum{
+			Type:  "sha256",
+			Value: nil,
+		}
+		toReturn.Data.Error = nil
+	} else if toReturn.Type == "docker" {
+		toReturn.Data.Image = pk.Spec.Source.Registry.Image
+		toReturn.State = "READY"
+	}
+
+	updatedAt, err := getTimeLastUpdatedTimestamp(&pk.ObjectMeta)
+	if err != nil {
+		fmt.Printf("Error finding last updated time for package %s: %v\n", pk.Name, err)
+	}
+	toReturn.UpdatedAt = updatedAt
+	return toReturn
+}
+
+//---------------------------------------------------------------------------------------
+// DROPLET PRESENTER
+//---------------------------------------------------------------------------------------
 type CFAPIPresenterAppRelationshipsDroplet struct {
 	Data  CFAPIAppRelationshipsDropletData `json:"data"`
 	Links map[string]CFAPILink             `json:"links"`
