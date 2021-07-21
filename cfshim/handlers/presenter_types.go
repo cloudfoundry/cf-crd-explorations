@@ -79,7 +79,7 @@ func formatAppToPresenter(app *appsv1alpha1.App) CFAPIPresenterAppResource {
 	toReturn := CFAPIPresenterAppResource{
 		GUID:      app.Name,
 		Name:      app.Spec.Name,
-		State:     string(app.Spec.State),
+		State:     string(app.Spec.DesiredState),
 		CreatedAt: app.CreationTimestamp.UTC().Format(time.RFC3339),
 		UpdatedAt: "",
 		Lifecycle: CFAPIPresenterAppLifecycle{

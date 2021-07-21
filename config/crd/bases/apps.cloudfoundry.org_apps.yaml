@@ -46,6 +46,12 @@ spec:
                 - kind
                 - name
                 type: object
+              desiredState:
+                description: 'Specifies the current state of the app Valid values are: "STARTED": App is started "STOPPED": App is stopped'
+                enum:
+                - STARTED
+                - STOPPED
+                type: string
               envSecretName:
                 description: Specifies the k8s secret name with the App credentials and other private info
                 type: string
@@ -72,12 +78,6 @@ spec:
                 type: object
               name:
                 type: string
-              state:
-                description: 'Specifies the current state of the app Valid values are: "STARTED": App is started "STOPPED": App is stopped'
-                enum:
-                - STARTED
-                - STOPPED
-                type: string
               type:
                 description: 'Specifies the CF Lifecycle type: https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#sample-requests Valid values are: "docker": run prebuilt docker image "kpack": stage the app using kpack'
                 enum:
@@ -86,9 +86,9 @@ spec:
                 type: string
             required:
             - currentDropletRef
+            - desiredState
             - envSecretName
             - name
-            - state
             type: object
           status:
             description: AppStatus defines the observed state of App

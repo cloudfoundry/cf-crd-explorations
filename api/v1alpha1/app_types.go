@@ -34,7 +34,7 @@ type AppSpec struct {
 	// Valid values are:
 	// "STARTED": App is started
 	// "STOPPED": App is stopped
-	State DesiredState `json:"state"`
+	DesiredState DesiredState `json:"desiredState"`
 
 	// Specifies the CF Lifecycle type:
 	// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#sample-requests

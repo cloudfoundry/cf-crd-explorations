@@ -92,74 +92,100 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// build the Deployment that we want
-	desiredEiriniLRP := eiriniv1.LRP{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      process.Name,
-			Namespace: process.Namespace,
-			Labels: map[string]string{
-				"apps.cloudfoundry.org/appGuid":     process.Spec.AppRef.Name,
-				"apps.cloudfoundry.org/processGuid": process.Name,
-				"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
-					Kind:       process.Kind,
-					Name:       process.Name,
-					UID:        process.UID,
+	// fetch the LRP if it exists
+	existingLRP := new(eiriniv1.LRP)
+	lrpExists := true
+	if err := r.Get(ctx, types.NamespacedName{Name: process.Name, Namespace: req.Namespace}, existingLRP); err != nil {
+		// TODO: is there value in knowing if this was a client error or just a not-found error?
+		logger.Info(fmt.Sprintf("Could not fetch LRP: %s", err))
+		lrpExists = false
+	}
+
+	if app.Spec.DesiredState == cfappsv1alpha1.StartedState {
+
+		// build the Deployment that we want
+		desiredEiriniLRP := eiriniv1.LRP{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      process.Name,
+				Namespace: process.Namespace,
+				Labels: map[string]string{
+					"apps.cloudfoundry.org/appGuid":     process.Spec.AppRef.Name,
+					"apps.cloudfoundry.org/processGuid": process.Name,
+					"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
+						Kind:       process.Kind,
+						Name:       process.Name,
+						UID:        process.UID,
+					},
 				},
 			},
-		},
-		Spec: eiriniv1.LRPSpec{
-			GUID:        process.Name,
-			Version:     process.ResourceVersion, // TODO: Do we care about this?
-			ProcessType: process.Spec.ProcessType,
-			AppName:     app.Spec.Name,
-			AppGUID:     app.Name,
-			OrgName:     "TBD",
-			OrgGUID:     "TBD",
-			SpaceName:   "TBD",
-			SpaceGUID:   "TBD",
-			Image:       droplet.Spec.Registry.Image,
-			Command:     commandForProcess(process, app),
-			Sidecars:    nil,
-			// TODO: Used for Docker images?
-			//PrivateRegistry: &eiriniv1.PrivateRegistry{
-			//	Username: "",
-			//	Password: "",
-			//},
-			// TODO: Can Eirini LRP be updated to take a secret name?
-			Env: secretDataToEnvMap(appEnvSecret.Data),
-			Health: eiriniv1.Healthcheck{
-				// TODO: Revisit int types :)
-				Type:      string(process.Spec.HealthCheck.Type),
-				Port:      process.Spec.Ports[0],
-				Endpoint:  process.Spec.HealthCheck.Data.HTTPEndpoint,
-				TimeoutMs: uint(process.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
+			Spec: eiriniv1.LRPSpec{
+				GUID:        process.Name,
+				Version:     process.ResourceVersion, // TODO: Do we care about this?
+				ProcessType: process.Spec.ProcessType,
+				AppName:     app.Spec.Name,
+				AppGUID:     app.Name,
+				OrgName:     "TBD",
+				OrgGUID:     "TBD",
+				SpaceName:   "TBD",
+				SpaceGUID:   "TBD",
+				Image:       droplet.Spec.Registry.Image,
+				Command:     commandForProcess(process, app),
+				Sidecars:    nil,
+				// TODO: Used for Docker images?
+				//PrivateRegistry: &eiriniv1.PrivateRegistry{
+				//	Username: "",
+				//	Password: "",
+				//},
+				// TODO: Can Eirini LRP be updated to take a secret name?
+				Env: secretDataToEnvMap(appEnvSecret.Data),
+				Health: eiriniv1.Healthcheck{
+					// TODO: Revisit int types :)
+					Type:      string(process.Spec.HealthCheck.Type),
+					Port:      process.Spec.Ports[0],
+					Endpoint:  process.Spec.HealthCheck.Data.HTTPEndpoint,
+					TimeoutMs: uint(process.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
+				},
+				Ports:     process.Spec.Ports,
+				Instances: process.Spec.Instances,
+				MemoryMB:  process.Spec.MemoryMB,
+				DiskMB:    process.Spec.DiskQuotaMB,
+				CPUWeight: 0, // TODO: Logic in Cloud Controller is very Diego-centric. Chose not to deal with cpu requests for now
 			},
-			Ports:     process.Spec.Ports,
-			Instances: process.Spec.Instances,
-			MemoryMB:  process.Spec.MemoryMB,
-			DiskMB:    process.Spec.DiskQuotaMB,
-			CPUWeight: 0, // TODO: Logic in Cloud Controller is very Diego-centric. Chose not to deal with cpu requests for now
-		},
+		}
+
+		actualEiriniLRP := &eiriniv1.LRP{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      process.Name,
+				Namespace: process.Namespace,
+			},
+		}
+
+		result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualEiriniLRP, eiriniLRPMutateFunction(actualEiriniLRP, &desiredEiriniLRP))
+		if err != nil {
+			logger.Info(fmt.Sprintf("Error occurred updating LRP: %s, %s", result, err))
+			return ctrl.Result{}, err
+		}
+
+		logger.Info(fmt.Sprintf("Successfully Created/Updated LRP: %s", result))
+
+	} else if app.Spec.DesiredState == cfappsv1alpha1.StoppedState {
+		// delete the LRP if it exists and desired state is "STOPPED"
+		if lrpExists {
+			err := r.Client.Delete(context.Background(), existingLRP)
+			if err != nil {
+				logger.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", process.Name, err))
+				return ctrl.Result{}, err
+			}
+			logger.Info(fmt.Sprintf("Successfully Deleted LRP: %s", process.Name))
+		} else {
+			logger.Info("Nothing to do: app desired state is \"STOPPED\"")
+		}
 	}
 
-	actualEiriniLRP := &eiriniv1.LRP{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      process.Name,
-			Namespace: process.Namespace,
-		},
-	}
-
-	result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualEiriniLRP, eiriniLRPMutateFunction(actualEiriniLRP, &desiredEiriniLRP))
-	if err != nil {
-		logger.Info(fmt.Sprintf("Error occurred updating LRP: %s, %s", result, err))
-		return ctrl.Result{}, err
-	}
-
-	logger.Info(fmt.Sprintf("Successfully Created/Updated LRP: %s", result))
 	return ctrl.Result{}, nil
 }
 
