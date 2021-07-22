@@ -146,12 +146,11 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				Spec: buildv1alpha1.ImageSpec{
 					Tag: settings.GlobalSettings.RegistryTagBase + "/" + app.GetName(),
 					Builder: v1.ObjectReference{
-						Kind:       "Builder",
-						Namespace:  kpackImageNamespace,
+						Kind:       "ClusterBuilder",
 						Name:       "my-sample-builder", // TODO: cf-for-k8s makes a builder per-app
 						APIVersion: "kpack.io/v1alpha1",
 					},
-					ServiceAccount: "kpack-service-account", // TODO: this is hardcoded too!
+					ServiceAccount: "kpack-service-account", // TODO: this is hardcoded too! You need a serviceAccount w/ secrets with this name in every namespace you build in.
 					Source: buildv1alpha1.SourceConfig{
 						Registry: &buildv1alpha1.Registry{
 							Image:            buildPackage.Spec.Source.Registry.Image,
