@@ -6,7 +6,7 @@ metadata:
   labels:
     apps.cloudfoundry.org/appGuid: my-app-guid
     apps.cloudfoundry.org/processGuid: my-process-guid
-    apps.cloudfoundry.org/processType: my-process-type
+    apps.cloudfoundry.org/processType: web
 spec:
   appRef:
     kind: App

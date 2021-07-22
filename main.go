@@ -171,6 +171,7 @@ func main() {
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.GetAppHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.ListAppsHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.CreateAppsHandler).Methods("POST")
+		myRouter.HandleFunc(handlers.SetAppDesiredStateEndpoint, appHandler.SetAppDesiredStateHandler).Methods("POST")
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.UpdateAppsHandler).Methods("PUT")
 		myRouter.HandleFunc(handlers.SetCurrentDroplet, appHandler.SetCurrentDroplet).Methods("PATCH")
 		myRouter.HandleFunc(handlers.GetPackageEndpoint, packageHandler.GetPackageHandler).Methods("GET")

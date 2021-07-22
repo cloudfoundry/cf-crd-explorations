@@ -8,7 +8,7 @@ metadata:
     apps.cloudfoundry.org/appName: my-app-name
 spec:
   name: my-app-name
-  state: STARTED
+  desiredState: STARTED
   type: kpack
   lifecycle:
     data:

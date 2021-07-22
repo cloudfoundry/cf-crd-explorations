@@ -12,7 +12,7 @@ import (
 
 	"encoding/json"
 
-	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,9 +21,10 @@ import (
 
 // Define the routes used in the REST endpoints
 const (
-	AppsEndpoint      = "/v3/apps"
-	GetAppEndpoint    = AppsEndpoint + "/{guid}"
-	SetCurrentDroplet = GetAppEndpoint + "/relationships/current_droplet"
+	AppsEndpoint               = "/v3/apps"
+	GetAppEndpoint             = AppsEndpoint + "/{guid}"
+	SetCurrentDroplet          = GetAppEndpoint + "/relationships/current_droplet"
+	SetAppDesiredStateEndpoint = GetAppEndpoint + "/actions/{action}"
 )
 
 type AppHandler struct {
@@ -144,7 +145,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		formatQueryParams(queryParameters)
 
-		var matchedApps []*appsv1alpha1.App
+		var matchedApps []*cfappsv1alpha1.App
 
 		// Apply filter to AllApps and store result in matchedApps
 		matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
@@ -218,19 +219,19 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		envSecret = appGUID + "-env"
 	}
 
-	app := &appsv1alpha1.App{
+	app := &cfappsv1alpha1.App{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        appGUID,
 			Namespace:   appRequest.Relationships.Space.Data.GUID,
 			Labels:      appRequest.Metadata.Labels,
 			Annotations: appRequest.Metadata.Annotations,
 		},
-		Spec: appsv1alpha1.AppSpec{
-			Name:  appRequest.Name,
-			State: "STOPPED",
-			Type:  appsv1alpha1.LifecycleType(lifecycleType),
-			Lifecycle: appsv1alpha1.Lifecycle{
-				Data: appsv1alpha1.LifecycleData{
+		Spec: cfappsv1alpha1.AppSpec{
+			Name:         appRequest.Name,
+			DesiredState: "STOPPED",
+			Type:         cfappsv1alpha1.LifecycleType(lifecycleType),
+			Lifecycle: cfappsv1alpha1.Lifecycle{
+				Data: cfappsv1alpha1.LifecycleData{
 					Buildpacks: lifecycleData.Buildpacks,
 					Stack:      lifecycleData.Stack,
 				},
@@ -259,7 +260,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	formatQueryParams(queryParameters)
 
-	var matchedApps []*appsv1alpha1.App
+	var matchedApps []*cfappsv1alpha1.App
 
 	// Apply filter to AllApps and store result in matchedApps
 	matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
@@ -323,7 +324,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		stack = appRequest.Lifecycle.Data.Stack
 	}
 
-	matchedApps[0].Spec.Lifecycle.Data = appsv1alpha1.LifecycleData{
+	matchedApps[0].Spec.Lifecycle.Data = cfappsv1alpha1.LifecycleData{
 		Buildpacks: buildpacks,
 		Stack:      stack,
 	}
@@ -340,7 +341,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 
 func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 
-	var matchedApps []*appsv1alpha1.App
+	var matchedApps []*cfappsv1alpha1.App
 	var dropletRequest CFAPIAppRelationshipsDroplet
 	var errorMessage string
 	var errorTitle string
@@ -392,7 +393,7 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 	}
 	formatQueryParams(queryParameters)
 
-	var matchedDroplets []*appsv1alpha1.Droplet
+	var matchedDroplets []*cfappsv1alpha1.Droplet
 	matchedDroplets, err = getDropletListFromQuery(&a.Client, queryParameters)
 	if err != nil {
 		fmt.Printf("error fetching droplets from query: %s\n", err)
@@ -433,7 +434,7 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	matchedApp.Spec.CurrentDropletRef = appsv1alpha1.DropletReference{
+	matchedApp.Spec.CurrentDropletRef = cfappsv1alpha1.DropletReference{
 		Name: dropletRequest.Data.GUID,
 	}
 
@@ -453,10 +454,69 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(formatSetDropletResponse(matchedApp))
 }
 
-func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *appsv1alpha1.App) {
+func (a *AppHandler) ReturnFormattedResponse(w http.ResponseWriter, app *cfappsv1alpha1.App) {
 	formattedApp := formatAppToPresenter(app)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	json.NewEncoder(w).Encode(formattedApp)
+}
+
+// SetAppDesiredStateHandler is for getting a single app from the guid
+// For now, only outputs the first match after searching ALL namespaces for Apps
+// POST /v3/apps/:guid/actions/start|stop
+// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#start-an-app
+// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#stop-an-app
+func (a *AppHandler) SetAppDesiredStateHandler(w http.ResponseWriter, r *http.Request) {
+	//Fetch the {guid} value from URL using gorilla mux
+	vars := mux.Vars(r)
+	appGUID := vars["guid"]
+	action := vars["action"]
+	desiredState := cfappsv1alpha1.StartedState
+
+	if action != "start" && action != "stop" {
+		ReturnFormattedError(w, 500, "ServerError", fmt.Sprintf("action %s is not recognized", action), 10001)
+		return
+	} else if action == "stop" {
+		desiredState = cfappsv1alpha1.StoppedState
+	}
+
+	// map[string][]string
+	queryParameters := map[string][]string{
+		"guids": {appGUID},
+	}
+
+	// Use the k8s client to fetch the apps with the same metadata.name as the guid
+	matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	if len(matchedApps) < 1 {
+		// If no matches for the GUID, just return a 404
+		errorMessage := fmt.Sprintf("App with guid %s not found", appGUID)
+		errorTitle := "CF-ResourceNotFound"
+		errorCode := 10010
+		errorHeader := 404
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
+		return
+	}
+
+	matchedApp := matchedApps[0]
+	if matchedApp.Spec.DesiredState != desiredState {
+		// modify the desired state of the app and re-apply it
+		matchedApp.Spec.DesiredState = desiredState
+		err = a.Client.Update(context.Background(), matchedApp)
+		if err != nil {
+			fmt.Printf("error updating App object: %v\n", err)
+			w.WriteHeader(500)
+			return
+		}
+	}
+
+	// Write MatchedApps to http ResponseWriter
+	w.Header().Set("Content-Type", "application/json")
+	// We are only printing the first element in the list for now ignoring cross-namespace guid collisions
+	a.ReturnFormattedResponse(w, matchedApp)
 }
