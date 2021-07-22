@@ -5,7 +5,7 @@ metadata:
   name: build-guid
   labels:
     apps.cloudfoundry.org/appGuid: my-app-guid
-    apps.cloudfoundry.org/packageGuid: kpack-package-guid
+    apps.cloudfoundry.org/packageGuid: bits-package-guid
 spec:
   # TODO: should this be buildpack?
   type: kpack
