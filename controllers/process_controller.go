@@ -175,7 +175,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	} else if app.Spec.DesiredState == cfappsv1alpha1.StoppedState {
 		// delete the LRP if it exists and desired state is "STOPPED"
 		if lrpExists {
-			err := r.Client.Delete(context.Background(), existingLRP)
+			err := r.Client.Delete(ctx, existingLRP)
 			if err != nil {
 				logger.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", process.Name, err))
 				return ctrl.Result{}, err

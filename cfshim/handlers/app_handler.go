@@ -495,7 +495,11 @@ func (a *AppHandler) SetAppDesiredStateHandler(w http.ResponseWriter, r *http.Re
 
 	if len(matchedApps) < 1 {
 		// If no matches for the GUID, just return a 404
-		w.WriteHeader(404)
+		errorMessage := fmt.Sprintf("App with guid %s not found", appGUID)
+		errorTitle := "CF-ResourceNotFound"
+		errorCode := 10010
+		errorHeader := 404
+		ReturnFormattedError(w, errorHeader, errorTitle, errorMessage, errorCode)
 		return
 	}
 
