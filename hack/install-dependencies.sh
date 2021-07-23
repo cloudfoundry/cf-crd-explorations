@@ -65,12 +65,12 @@ echo "******************************"
 kubectl create ns eirini-controller
 kubectl create ns cf-workloads
 
-curl https://raw.githubusercontent.com/cloudfoundry-incubator/eirini-controller/master/deployment/scripts/generate-secrets.sh | bash -s - "*.eirini-controller.svc"
+./dependencies/generate-secrets.sh "*.eirini-controller.svc"
 
 VERSION=0.1.0
 WEBHOOK_CA_BUNDLE="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
 
-helm install eirini-controller https://github.com/cloudfoundry-incubator/eirini-controller/releases/download/v$VERSION/eirini-controller-$VERSION.tgz \
+helm install eirini-controller ./dependencies/eirini-controller-$VERSION.tgz \
   --namespace eirini-controller \
   --set "webhook_ca_bundle=$WEBHOOK_CA_BUNDLE" \
   --set "resource_validator_ca_bundle=$RESOURCE_VALIDATOR_CA_BUNDLE" \
