@@ -171,18 +171,18 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 
 	lifecycleType := appRequest.Lifecycle.Type
 	if lifecycleType == "" {
-		lifecycleType = "kpack"
+		lifecycleType = string(cfappsv1alpha1.BuildpackLifecycle)
 	}
 
 	lifecycleData := appRequest.Lifecycle.Data
-	if lifecycleType == "kpack" && lifecycleData.Stack == "" {
+	if lifecycleType == string(cfappsv1alpha1.BuildpackLifecycle) && lifecycleData.Stack == "" {
 		lifecycleData.Stack = "cflinuxfs3" // TODO: This is the default in CF for VMs. What should the default stack be here?
 	}
-	if lifecycleType == "kpack" && len(lifecycleData.Buildpacks) == 0 {
+	if lifecycleType == string(cfappsv1alpha1.BuildpackLifecycle) && len(lifecycleData.Buildpacks) == 0 {
 		lifecycleData.Buildpacks = []string{}
 	}
 
-	// Check if the namespace in the request exitsts
+	// Check if the namespace in the request exists
 	space := &corev1.Namespace{}
 	err = a.Client.Get(ctx, types.NamespacedName{Name: appRequest.Relationships.Space.Data.GUID}, space)
 	if err != nil {

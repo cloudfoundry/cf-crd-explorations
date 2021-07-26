@@ -28,7 +28,7 @@ type DropletSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Specifies the Lifecycle type kpack or docker of the droplet
+	// Specifies the Lifecycle type buildpack or docker of the droplet
 	Type LifecycleType `json:"type"`
 
 	// Specifies the App associated with this Droplet
@@ -39,6 +39,12 @@ type DropletSpec struct {
 
 	// Specifies the Container registry image, and secrets to access
 	Registry Registry `json:"registry,omitempty"`
+
+	// Specifies the process types and associated start commands for the Droplet
+	ProcessTypes []ProcessType `json:"processTypes,omitempty"`
+
+	// Specifies the exposed ports for the application
+	Ports []int32 `json:"ports,omitempty"`
 }
 
 type Image struct {

@@ -104,3 +104,17 @@ echo "******************************"
 echo "Installed and configured CF App Validating Webhook"
 echo "******************************"
 
+#App Registry Credentials
+kubectl create secret docker-registry app-registry-credentials \
+    --docker-username=$DOCKER_USERNAME \
+    --docker-password="$DOCKER_PASSWORD" \
+    --docker-server=$DOCKER_SERVER \
+    --namespace default
+
+echo "******************************"
+echo "Please run following command to complete the installation"
+echo "export REGISTRY_SECRET=\"app-registry-credentials\""
+echo "******************************"
+
+
+

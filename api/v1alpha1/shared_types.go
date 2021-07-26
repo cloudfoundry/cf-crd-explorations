@@ -35,6 +35,9 @@ type DropletReference struct {
 	Name       string `json:"name"`
 }
 
+// ProcessType is a map of process names and associated start commands for the Droplet
+type ProcessType map[string]string
+
 // KpackImageReference is used by build
 type KpackImageReference struct {
 	Kind       string `json:"kind"`
@@ -93,13 +96,13 @@ const (
 )
 
 // LifecycleType inform the platform of how to build droplets and run apps
-// allow only values of "docker" and "kpack" - "buildpack" is only for cf-for-vms and is not supported
-// +kubebuilder:validation:Enum=docker;kpack
+// allow only values of "docker" and "buildpack" - "buildpack" is only for cf-for-vms and is not supported
+// +kubebuilder:validation:Enum=docker;buildpack
 type LifecycleType string
 
 const (
-	DockerLifecycle LifecycleType = "docker"
-	KPackLifecycle  LifecycleType = "kpack"
+	DockerLifecycle    LifecycleType = "docker"
+	BuildpackLifecycle LifecycleType = "buildpack"
 )
 
 // DesiredState used to ensure that illegal states are not provided as a string to the CRD

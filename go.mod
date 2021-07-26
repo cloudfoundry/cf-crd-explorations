@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	code.cloudfoundry.org/eirini v0.0.0-20210609140938-f9ca28490ea1
+	github.com/buildpacks/lifecycle v0.11.3
 	github.com/buildpacks/pack v0.19.0
 	github.com/go-logr/logr v0.4.0
 	github.com/google/go-containerregistry v0.5.1

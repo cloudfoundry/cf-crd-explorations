@@ -17,6 +17,31 @@ This is just a sandbox for exploring how the V3 Cloud Foundry APIs might be back
 
 ## Trying it out
 
+### Setup using the install-hack script
+
+Run the hack script to install prerequisites, CF-CRDs and app-validation webhook.
+
+Below `PATH_TO_GCR_JSON` is a path to the file containing your registry credentials where kpack can push built images.
+```
+hack/install-dependencies.sh -g "$PATH_TO_GCR_JSON"
+```
+
+It requires the following environment variables to complete installation:
+- `REGISTRY_TAG_BASE`: Where Kpack built images should be published.
+- `PACKAGE_REGISTRY_TAG_BASE`: The app converts packages into single layer OCI images. This is the where these images should be published.
+- `REGISTRY_SECRET`: K8s secret for accessing the push/pull from package registry.
+
+```
+# Example:
+export REGISTRY_TAG_BASE=gcr.io/cf-relint-greengrass/cf-crd-staging-spike/kpack
+export PACKAGE_REGISTRY_TAG_BASE="gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages"
+export REGISTRY_SECRET="app-registry-credentials"
+```
+
+To run locally against a targeted K8s cluster, jump to `Running locally` section
+
+To run on a cluster, jump to `Run on Cluster` section
+
 ### Cluster Pre-requisites
 The below requirements can be installed with the `./hack/install-dependencies.sh` script. It takes a flag to a gcr json key with a `-g` or `--gcr-service-account-json` flag, which specifies the file location of a gcr json key.
 
@@ -49,11 +74,6 @@ Install prerequisites, kpack & eirini, as well as the validating webhook for cf 
     export PATH="/usr/local/opt/libressl/bin:$PATH"
     ```
 
-Run the hack script to install prerequsites. Below `PATH_TO_GCR_JSON` is a path to the file containing your registry credentials where kpack can push built images.
-```
-hack/install-dependencies.sh -g "$PATH_TO_GCR_JSON"
-```
-
 
 ## Running the API and controllers
 
@@ -64,22 +84,6 @@ The spike code converts Apps, Processes, and Droplets into kubernetes resources,
 require the Eirini LRP controller (see cluster pre-requisites above for information on how to install it).
 
 It also produces staged Droplets from Packages and Builds using Kpack.
-
-It requires the following environment variables:
-  - `REGISTRY_TAG_BASE`: Where Kpack built images should be published.
-  - `PACKAGE_REGISTRY_TAG_BASE`: The app converts packages into single layer OCI images. This is the where these images should be published.
-  - `PACKAGE_REGISTRY_USERNAME`: The user for the image registry used to store package source images.
-  - `PACKAGE_REGISTRY_PASSWORD`: The password for the image registry used to store package source images.
-
-```
-# Example:
-export REGISTRY_TAG_BASE=gcr.io/cf-relint-greengrass/cf-crd-staging-spike/kpack
-export PACKAGE_REGISTRY_TAG_BASE="gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages"
-export PACKAGE_REGISTRY_USERNAME=_json_key
-
-# Probably the same file you use for the hack/install-dependencies.sh script
-export PACKAGE_REGISTRY_PASSWORD="$(cat ~/Downloads/greengrass_gcp_service_account.json)" 
-```
 
 To start the controller locally, run:
 

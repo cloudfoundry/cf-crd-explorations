@@ -34,7 +34,7 @@ import (
 
 	"cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -130,7 +130,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.StagingConditionType, metav1.ConditionFalse, "Docker", "")
 
 			// For Buildpack type build staging, we need to create a kpack image
-		} else if currentBuild.Spec.Type == cfappsv1alpha1.KPackLifecycle {
+		} else if currentBuild.Spec.Type == cfappsv1alpha1.BuildpackLifecycle {
 			kpackImageName := "cf-build-" + currentBuild.Name
 			kpackImageNamespace := currentBuild.Namespace
 			// make a desired kpack CR
@@ -145,7 +145,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				},
 				Spec: buildv1alpha1.ImageSpec{
 					Tag: settings.GlobalSettings.RegistryTagBase + "/" + app.GetName(),
-					Builder: v1.ObjectReference{
+					Builder: corev1.ObjectReference{
 						Kind:       "ClusterBuilder",
 						Name:       "my-sample-builder", // TODO: cf-for-k8s makes a builder per-app
 						APIVersion: "kpack.io/v1alpha1",
@@ -211,7 +211,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				return ctrl.Result{}, err
 			}
 			buildSucceeded = metav1.ConditionTrue
-		} else if currentBuild.Spec.Type == cfappsv1alpha1.KPackLifecycle {
+		} else if currentBuild.Spec.Type == cfappsv1alpha1.BuildpackLifecycle {
 			// look up the kpack Build CR based on the the CF build CR
 			var kpackBuild buildv1alpha1.Build
 			// fetch the list of kpack builds with the labels set on the kpack image we created earlier
@@ -242,7 +242,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			}
 		}
 
-		// buildSucceeded is usually "True" from Docker type, it is derrived from kpack build from Buildpack type
+		// buildSucceeded is usually "True" from Docker type, it is derived from kpack build from Buildpack type
 		// dropletImageRegistry is constructed from the Package for Docker type, and created from the kpack build from Buildpack type
 		if buildSucceeded == metav1.ConditionTrue {
 			desiredDroplet := cfappsv1alpha1.Droplet{
@@ -290,7 +290,14 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				logger.Info(fmt.Sprintf("Error occurred updating Droplet: %s, %s", result, err))
 				return ctrl.Result{}, err
 			}
+
+			currentBuild.Status.DropletReference = cfappsv1alpha1.DropletReference{
+				Kind:       desiredDroplet.Kind,
+				APIVersion: desiredDroplet.APIVersion,
+				Name:       desiredDroplet.Name,
+			}
 		}
+
 		updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.SucceededConditionType, buildSucceeded, strings.Title(string(currentBuild.Spec.Type)), "")
 		updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.ReadyConditionType, buildSucceeded, strings.Title(string(currentBuild.Spec.Type)), "")
 

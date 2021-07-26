@@ -7,7 +7,7 @@ metadata:
     apps.cloudfoundry.org/appGuid: my-app-guid
     apps.cloudfoundry.org/buildGuid: my-build-guid
 spec:
-  type: kpack
+  type: buildpack
   appRef:
     kind: App
     apiVersion: apps.cloudfoundry.org/v1alpha1
@@ -20,3 +20,4 @@ spec:
     image: "gcr.io/cf-relint-greengrass/kpack-tutorial-demo-app-local"
     imagePullSecrets:
     - name: "kpack-registry-credentials"
+  processTypes: []

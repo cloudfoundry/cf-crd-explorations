@@ -9,7 +9,7 @@ metadata:
 spec:
   name: my-app-name
   desiredState: STARTED
-  type: kpack
+  type: buildpack
   lifecycle:
     data:
       buildpacks: []

@@ -40,7 +40,7 @@ type AppSpec struct {
 	// https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#sample-requests
 	// Valid values are:
 	// "docker": run prebuilt docker image
-	// "kpack": stage the app using kpack
+	// "buildpack": stage the app using kpack
 	Type LifecycleType `json:"type,omitempty"`
 
 	// Specifies how to build droplets and run apps

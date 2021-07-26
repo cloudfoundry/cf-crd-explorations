@@ -60,6 +60,20 @@ spec:
                 - kind
                 - name
                 type: object
+              ports:
+                description: Specifies the exposed ports for the application
+                items:
+                  format: int32
+                  type: integer
+                type: array
+              processTypes:
+                description: Specifies the process types and associated start commands for the Droplet
+                items:
+                  additionalProperties:
+                    type: string
+                  description: ProcessType is a map of process names and associated start commands for the Droplet
+                  type: object
+                type: array
               registry:
                 description: Specifies the Container registry image, and secrets to access
                 properties:
@@ -80,10 +94,10 @@ spec:
                 - image
                 type: object
               type:
-                description: Specifies the Lifecycle type kpack or docker of the droplet
+                description: Specifies the Lifecycle type buildpack or docker of the droplet
                 enum:
                 - docker
-                - kpack
+                - buildpack
                 type: string
             required:
             - appRef

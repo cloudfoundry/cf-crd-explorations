@@ -112,6 +112,14 @@ func formatAppToPresenter(app *appsv1alpha1.App) CFAPIPresenterAppResource {
 }
 
 func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
+
+	var dropletRef *CFAPIBuildDroplet
+	if build.Status.DropletReference.Name != "" {
+		dropletRef = &CFAPIBuildDroplet{
+			GUID: build.Status.DropletReference.Name,
+		}
+	}
+
 	toReturn := CFAPIBuildResource{
 		GUID:      build.Name,
 		State:     "",
@@ -125,11 +133,9 @@ func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
 			},
 		},
 		Package: &CFAPIBuildPackage{
-			GUID: build.Spec.AppRef.Name,
+			GUID: build.Spec.PackageRef.Name, // TODO: Should we reject a story?
 		},
-		Droplet: CFAPIBuildDroplet{
-			GUID: "NOT CURRENTLY IMPLEMENTED",
-		},
+		Droplet: dropletRef,
 		Relationships: CFAPIBuildRelationships{
 			App: CFAPIBuildRelationshipsApps{
 				Data: CFAPIBuildRelationshipsAppsData{

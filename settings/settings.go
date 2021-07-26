@@ -9,10 +9,9 @@ var GlobalSettings *Settings
 
 type Settings struct {
 	// RegistryTagBase is the container registry prefix to upload source & build images do
-	RegistryTagBase         string `json:"registryTagBase"`
-	PackageRegistryTagBase  string
-	PackageRegistryUsername string
-	PackageRegistryPassword string
+	RegistryTagBase     string `json:"registryTagBase"`
+	RegistrySecret      string
+	PackageRegistryBase string
 }
 
 func Load() (*Settings, error) {
@@ -23,19 +22,14 @@ func Load() (*Settings, error) {
 		return nil, errors.New("REGISTRY_TAG_BASE not configured")
 	}
 
-	s.PackageRegistryTagBase, exists = os.LookupEnv("PACKAGE_REGISTRY_TAG_BASE")
+	s.RegistrySecret, exists = os.LookupEnv("REGISTRY_SECRET")
 	if !exists {
-		return nil, errors.New("PACKAGE_REGISTRY_TAG_BASE not configured")
+		return nil, errors.New("REGISTRY_SECRET not configured")
 	}
 
-	s.PackageRegistryUsername, exists = os.LookupEnv("PACKAGE_REGISTRY_USERNAME")
+	s.PackageRegistryBase, exists = os.LookupEnv("PACKAGE_REGISTRY_TAG_BASE")
 	if !exists {
-		return nil, errors.New("PACKAGE_REGISTRY_USERNAME not configured")
-	}
-
-	s.PackageRegistryPassword, exists = os.LookupEnv("PACKAGE_REGISTRY_PASSWORD")
-	if !exists {
-		return nil, errors.New("PACKAGE_REGISTRY_PASSWORD not configured")
+		return nil, errors.New("REGISTRY_SECRET not configured")
 	}
 
 	return s, nil
