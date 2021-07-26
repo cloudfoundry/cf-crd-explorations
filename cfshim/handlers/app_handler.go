@@ -182,7 +182,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		lifecycleData.Buildpacks = []string{}
 	}
 
-	// Check if the namespace in the request exits
+	// Check if the namespace in the request exists
 	space := &corev1.Namespace{}
 	err = a.Client.Get(ctx, types.NamespacedName{Name: appRequest.Relationships.Space.Data.GUID}, space)
 	if err != nil {
