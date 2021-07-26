@@ -1,10 +1,14 @@
-[req]
+[ req ]
 distinguished_name = req_distinguished_name
+req_extensions = req_ext
+
 [ req_distinguished_name ]
 basicConstraints=CA:FALSE
-subjectAltName=@alt_names
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
+
+[ req_ext ]
+subjectAltName = @alt_names
 
 [ alt_names ]
 DNS.1 = app-validation-webhook
