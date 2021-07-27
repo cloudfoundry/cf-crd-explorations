@@ -55,7 +55,7 @@ kubectl apply -f config/samples/kpack/release-0.3.1.yaml
 kubectl apply -f config/samples/kpack/serviceaccount.yaml \
     -f config/samples/kpack/stack.yaml \
     -f config/samples/kpack/store.yaml \
-    -f config/samples/kpack/builder.yaml
+    -f config/samples/kpack/cluster-builder.yaml
 
 echo "******************************"
 echo "Installed and configured Kpack"
