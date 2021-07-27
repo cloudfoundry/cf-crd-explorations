@@ -259,7 +259,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					},
 				},
 				Spec: cfappsv1alpha1.DropletSpec{
-					Type:   "docker",
+					Type:   currentBuild.Spec.Type,
 					AppRef: currentBuild.Spec.AppRef,
 					BuildRef: cfappsv1alpha1.BuildReference{
 						Kind:       "Build",
