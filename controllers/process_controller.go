@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 	"context"
 	"fmt"
 
@@ -111,7 +112,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				Name:      process.Name,
 				Namespace: process.Namespace,
 				Labels: map[string]string{
-					"apps.cloudfoundry.org/appGuid":     process.Spec.AppRef.Name,
+					handlers.LabelAppGUID:               process.Spec.AppRef.Name,
 					"apps.cloudfoundry.org/processGuid": process.Name,
 					"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
 				},
@@ -225,7 +226,7 @@ func (r *ProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&cfappsv1alpha1.Process{}).
 		Watches(&source.Kind{Type: &cfappsv1alpha1.App{}}, handler.EnqueueRequestsFromMapFunc(func(app client.Object) []reconcile.Request {
 			processList := &cfappsv1alpha1.ProcessList{}
-			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{"apps.cloudfoundry.org/appGuid": app.GetName()})
+			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(app.GetNamespace()), client.MatchingLabels{handlers.LabelAppGUID: app.GetName()})
 			var requests []reconcile.Request
 
 			for _, process := range processList.Items {
@@ -240,7 +241,7 @@ func (r *ProcessReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		})).
 		Watches(&source.Kind{Type: &cfappsv1alpha1.Droplet{}}, handler.EnqueueRequestsFromMapFunc(func(droplet client.Object) []reconcile.Request {
 			processList := &cfappsv1alpha1.ProcessList{}
-			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(droplet.GetNamespace()), client.MatchingLabels{"apps.cloudfoundry.org/appGuid": droplet.GetLabels()["apps.cloudfoundry.org/appGuid"]})
+			_ = mgr.GetClient().List(context.Background(), processList, client.InNamespace(droplet.GetNamespace()), client.MatchingLabels{handlers.LabelAppGUID: droplet.GetLabels()[handlers.LabelAppGUID]})
 			var requests []reconcile.Request
 
 			for _, process := range processList.Items {

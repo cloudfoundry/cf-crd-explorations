@@ -1,5 +1,10 @@
 package handlers
 
+const (
+	LabelAppGUID     = "apps.cloudfoundry.org/appGuid"
+	LabelPackageGUID = "apps.cloudfoundry.org/packageGuid"
+)
+
 type Filter interface {
 	// Filter takes an object, casts it uses preset filters and returns yes/no
 	Filter(interface{}) bool

@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 	"context"
 	"errors"
 	"fmt"
@@ -140,7 +141,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					Namespace: kpackImageNamespace,
 					Labels: map[string]string{
 						"apps.cloudfoundry.org/buildGuid": currentBuild.Name,
-						"apps.cloudfoundry.org/appGuid":   app.GetName(),
+						handlers.LabelAppGUID:             app.GetName(),
 					},
 				},
 				Spec: buildv1alpha1.ImageSpec{
@@ -216,7 +217,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			var kpackBuild buildv1alpha1.Build
 			// fetch the list of kpack builds with the labels set on the kpack image we created earlier
 			kpackBuildList := &buildv1alpha1.BuildList{}
-			err := r.Client.List(context.Background(), kpackBuildList, client.InNamespace(currentBuild.Namespace), client.MatchingLabels{"apps.cloudfoundry.org/appGuid": app.GetName()})
+			err := r.Client.List(context.Background(), kpackBuildList, client.InNamespace(currentBuild.Namespace), client.MatchingLabels{handlers.LabelAppGUID: app.GetName()})
 			if err != nil || len(kpackBuildList.Items) == 0 {
 				logger.Info(fmt.Sprintf("Error fetching kpack build for %s", app.GetName()))
 				return ctrl.Result{}, err
@@ -255,7 +256,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					Namespace: dropletNamespace,
 					Labels: map[string]string{
 						"apps.cloudfoundry.org/buildGuid": currentBuild.Name,
-						"apps.cloudfoundry.org/appGuid":   app.GetName(),
+						handlers.LabelAppGUID:             app.GetName(),
 					},
 				},
 				Spec: cfappsv1alpha1.DropletSpec{

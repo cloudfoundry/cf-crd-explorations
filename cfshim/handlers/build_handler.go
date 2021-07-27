@@ -150,6 +150,12 @@ func (b *BuildHandler) CreateBuildsHandler(w http.ResponseWriter, r *http.Reques
 	//generate new UUID for each create build request.
 	buildGUID := uuid.NewString()
 
+	if buildRequest.Metadata.Labels == nil {
+		buildRequest.Metadata.Labels = make(map[string]string)
+	}
+	buildRequest.Metadata.Labels[LabelAppGUID] = buildPackage.Labels[LabelAppGUID]
+	buildRequest.Metadata.Labels[LabelPackageGUID] = buildPackage.Name
+
 	build := &appsv1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        buildGUID,

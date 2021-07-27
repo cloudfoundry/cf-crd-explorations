@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 	"context"
 	"errors"
 	"fmt"
@@ -109,7 +110,7 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 					Name:      processGuid,
 					Namespace: app.Namespace,
 					Labels: map[string]string{
-						"apps.cloudfoundry.org/appGuid":     app.Name,
+						handlers.LabelAppGUID:               app.Name,
 						"apps.cloudfoundry.org/processGuid": processGuid,
 						"apps.cloudfoundry.org/processType": processType,
 					},
@@ -190,7 +191,7 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			var requests []reconcile.Request
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Name:      droplet.GetLabels()["apps.cloudfoundry.org/appGuid"],
+					Name:      droplet.GetLabels()[handlers.LabelAppGUID],
 					Namespace: droplet.GetNamespace(),
 				},
 			})

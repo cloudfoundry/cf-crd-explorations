@@ -163,13 +163,15 @@ func (p *PackageHandler) CreatePackageHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	namespace := matchedApps[0].Namespace
-
+	app := matchedApps[0]
+	namespace := app.Namespace
 	packageGUID := uuid.NewString()
+
 	pk := &appsv1alpha1.Package{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      packageGUID,
-			Namespace: namespace, // how do we ensure that the namespace exists?
+			Namespace: namespace,
+			Labels:    map[string]string{LabelAppGUID: app.Name},
 		},
 		Spec: appsv1alpha1.PackageSpec{
 			Type: appsv1alpha1.PackageType(packageRequest.Type),
