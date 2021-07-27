@@ -21,19 +21,19 @@ This is just a sandbox for exploring how the V3 Cloud Foundry APIs might be back
 
 Run the hack script to install prerequisites, CF-CRDs and app-validation webhook.
 
-Below `PATH_TO_GCR_JSON` is a path to the file containing your registry credentials where kpack can push built images.
+Below `PATH_TO_GCR_JSON` is a path to the file containing your registry credentials where buildpack can push built images.
 ```
 hack/install-dependencies.sh -g "$PATH_TO_GCR_JSON"
 ```
 
 It requires the following environment variables to complete installation:
-- `REGISTRY_TAG_BASE`: Where Kpack built images should be published.
+- `REGISTRY_TAG_BASE`: Where buildpack built images should be published.
 - `PACKAGE_REGISTRY_TAG_BASE`: The app converts packages into single layer OCI images. This is the where these images should be published.
 - `REGISTRY_SECRET`: K8s secret for accessing the push/pull from package registry.
 
 ```
 # Example:
-export REGISTRY_TAG_BASE=gcr.io/cf-relint-greengrass/cf-crd-staging-spike/kpack
+export REGISTRY_TAG_BASE=gcr.io/cf-relint-greengrass/cf-crd-staging-spike/buildpack
 export PACKAGE_REGISTRY_TAG_BASE="gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages"
 export REGISTRY_SECRET="app-registry-credentials"
 ```
@@ -83,7 +83,7 @@ Run controllers locally against a targeting (via kubeconfig) K8s cluster
 The spike code converts Apps, Processes, and Droplets into kubernetes resources, including Eirini LRP resources which
 require the Eirini LRP controller (see cluster pre-requisites above for information on how to install it).
 
-It also produces staged Droplets from Packages and Builds using Kpack.
+It also produces staged Droplets from Packages and Builds using kpack.
 
 To start the controller locally, run:
 
@@ -131,7 +131,7 @@ Since we do not have a spike implementation of staging or a Droplets Controller 
 2.
 ```
 NAMESPACE=cf-workloads
-DROPLET_NAME=kpack-droplet-guid
+DROPLET_NAME=buildpack-droplet-guid
 
 curl -k -s -X PATCH -H "Accept: application/json, */*" \
 -H "Content-Type: application/merge-patch+json" \
@@ -142,11 +142,18 @@ curl -k -s -X PATCH -H "Accept: application/json, */*" \
 ### Interacting with the API
 To experiment with the CF API shim, you can access the following endpoints and actions.
 
-|       ACTION       |        URL       |
-|--------------------|------------------|
-| **GET** / **POST** | `/v3/apps`       |
-| **GET** / **PUT**  | `/v3/apps/:guid` |
-| **POST**           | `/v3/packages`   |
+|       ACTION       |        URL                                           |
+|--------------------|------------------------------------------------------|
+| **GET** / **POST** | `/v3/apps`                                           |
+| **GET** / **PUT**  | `/v3/apps/:guid`                                     |
+| **POST**           | `/v3/packages`                                       |
+| **GET**            | `/v3/packages/:guid`                                 |
+| **POST**           | `/v3/packages/:guid/upload`                          |
+| **GET**            | `/v3/builds`                                         |
+| **GET**            | `/v3/builds/:guid`                                   |
+| **PATCH**          | `/v3/apps/:guid/relationships/current_droplet`       |
+| **POST**           | `/v3/apps/:guid/actions/<start/stop>`                |
+
 
 For example, you can get a list of applications by running `curl http://localhost:9000/v3/apps | jq .`
 
@@ -154,7 +161,7 @@ For example, you can get a list of applications by running `curl http://localhos
 The `/v3/apps` endpoint allows filtering.
 
 ```
-$ curl http://localhost:9000/v3/apps?lifecycle_type=kpack
+$ curl http://localhost:9000/v3/apps?lifecycle_type=buildpack
 $ curl http://localhost:9000/v3/apps?names=my-app-name,<new spec.name>
 ```
 
@@ -171,10 +178,10 @@ curl "http://localhost:9000/v3/apps" \
 ```
 curl "http://localhost:9000/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2" \
   -X PUT \
-  -d '{"name":"my-app","lifecycle":{"type":"kpack","data":{"buildpacks":["java_buildpack","ruby"],"stack":"cflinuxfs3"}}}'
+  -d '{"name":"my-app","lifecycle":{"type":"buildpack","data":{"buildpacks":["java_buildpack","ruby"],"stack":"cflinuxfs3"}}}'
 ```
 
-#### Creating Packages
+#### Creating Packages and Uploading Bits Package
 In order to create a docker Package, the associated App must be created first.
 
 ```
@@ -182,6 +189,54 @@ curl "http://localhost:9000/v3/packages" \
   -X POST \
   -d '{"type":"docker","relationships":{"app":{"data":{"guid":"9f924342-472a-43a1-9db9-54beba5401e2"}}},"data":{"image":"registry/your-image:latest","username":"dockerusername","password":"dockerpassword"}}'
 
+```
+
+To create a bits package and then upload source code via the following:
+
+```
+curl "http://localhost:9000/v3/packages" \
+  -X POST \
+  -d '{"type": "bits","relationships":{"app":{"data":{"guid":"9f924342-472a-43a1-9db9-54beba5401e2"}}}}'
+
+```
+
+```curl "http://localhost:9000/v3/packages/11c5d0ae-3bc6-441d-ac79-2ebd53b421c9/upload" \
+  -X POST \
+  -F bits=@"<path to zip>"
+```
+
+#### Creating Builds
+
+```
+curl "http://localhost:9000/v3/builds" \
+  -X POST \
+  -d '{"package": {"guid": "11c5d0ae-3bc6-441d-ac79-2ebd53b421c9"}}'
+
+```
+
+#### Adding the Current Droplet to the App
+
+Update the App to set the current droplet.
+
+```
+curl "http://localhost:9000/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2/relationships/current_droplet" \
+  -X PATCH \
+  -d '{"data":{"guid": "droplet-3874fb78-a0da-414a-ad6f-b2c18e904e57"}}'
+
+```
+
+#### Starting/Stopping the App
+
+To start or stop the App
+
+```
+curl "http://localhost:9000/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2/actions/start" \
+  -X POST
+```
+
+```
+curl "http://localhost:9000/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2/actions/stop" \
+  -X POST
 ```
 
 ---
