@@ -198,6 +198,12 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	//generate new UUID for each create app request.
 	appGUID := uuid.NewString()
 
+	// Add labels for apps.cloudfoundry.org/appGuid: my-app-guid
+	if appRequest.Metadata.Labels == nil {
+		appRequest.Metadata.Labels = make(map[string]string, 1)
+	}
+	appRequest.Metadata.Labels["apps.cloudfoundry.org/appGuid"] = appGUID
+
 	// Create app secrets if environment variables are provided
 	var envSecret string
 	if len(appRequest.EnvironmentVariables) != 0 {
@@ -243,7 +249,7 @@ func (a *AppHandler) CreateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	err = a.Client.Create(ctx, app)
 	if err != nil {
 		fmt.Printf("error creating App object: %v\n", err)
-		w.WriteHeader(500)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
@@ -274,6 +280,7 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
+	matchedApp := matchedApps[0]
 
 	var appRequest CFAPIAppResource
 	var errStrings []string
@@ -312,7 +319,24 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if appRequest.Name != "" {
-		matchedApps[0].Spec.Name = appRequest.Name
+		matchedApp.Spec.Name = appRequest.Name
+	}
+
+	// If metadata is provided, overwrite metadata on existing app
+	if appRequest.Metadata.Labels != nil {
+		// Add label for apps.cloudfoundry.org/appGuid: my-app-guid
+		appRequest.Metadata.Labels["apps.cloudfoundry.org/appGuid"] = appGUID
+		matchedApp.ObjectMeta.Labels = appRequest.Metadata.Labels
+	}
+
+	// if annotations is provided, overwrite annotations on existing app
+	if appRequest.Metadata.Annotations != nil {
+		matchedApp.ObjectMeta.Annotations = appRequest.Metadata.Annotations
+	}
+
+	lifecycleType := appRequest.Lifecycle.Type
+	if lifecycleType != "" {
+		matchedApp.Spec.Type = cfappsv1alpha1.LifecycleType(lifecycleType)
 	}
 
 	buildpacks := []string{}
@@ -324,19 +348,19 @@ func (a *AppHandler) UpdateAppsHandler(w http.ResponseWriter, r *http.Request) {
 		stack = appRequest.Lifecycle.Data.Stack
 	}
 
-	matchedApps[0].Spec.Lifecycle.Data = cfappsv1alpha1.LifecycleData{
+	matchedApp.Spec.Lifecycle.Data = cfappsv1alpha1.LifecycleData{
 		Buildpacks: buildpacks,
 		Stack:      stack,
 	}
 
-	err = a.Client.Update(context.Background(), matchedApps[0])
+	err = a.Client.Update(context.Background(), matchedApp)
 	if err != nil {
 		fmt.Printf("error updating App object: %v\n", err)
-		w.WriteHeader(500)
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
 	}
 
-	a.ReturnFormattedResponse(w, matchedApps[0])
+	a.ReturnFormattedResponse(w, matchedApp)
 }
 
 func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
@@ -435,7 +459,9 @@ func (a *AppHandler) SetCurrentDroplet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	matchedApp.Spec.CurrentDropletRef = cfappsv1alpha1.DropletReference{
-		Name: dropletRequest.Data.GUID,
+		APIVersion: "apps.cloudfoundry.org/v1alpha1",
+		Kind:       "Droplet",
+		Name:       dropletRequest.Data.GUID,
 	}
 
 	err = a.Client.Update(context.Background(), matchedApp)

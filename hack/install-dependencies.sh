@@ -47,7 +47,7 @@ DOCKER_SERVER=${DOCKER_SERVER:-"gcr.io"}
 
 # Kpack
 kubectl create secret docker-registry kpack-registry-credentials \
-    --docker-username=$DOCKER_USERNAME --docker-password="$DOCKER_PASSWORD" --docker-server=$DOCKER_SERVER --namespace default
+    --docker-username=$DOCKER_USERNAME --docker-password="$DOCKER_PASSWORD" --docker-server=$DOCKER_SERVER --namespace default || true
 # kubectl create secret docker-registry kpack-registry-credentials --docker-username="_json_key" --docker-password="$(cat /home/birdrock/workspace/credentials/cf-relint-greengrass-2826975617b2.json)" --docker-server=gcr.io --namespace default
 
 
