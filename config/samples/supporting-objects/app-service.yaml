@@ -1,0 +1,22 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-service
+  # TODO: Kustomize prefixes the system namespace with 'cf-crd-explorations-'
+  # We should figure out how to ensure this is prefixed automatically.
+  namespace: default
+  labels:
+    cloudfoundry.org/app_guid: ecc9f386-0b15-48cc-a297-f3e1fe53c1d4
+spec:
+  selector:
+    cloudfoundry.org/app_guid: ecc9f386-0b15-48cc-a297-f3e1fe53c1d4
+    cloudfoundry.org/process_type: web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+  # Type LoadBalancer works for most IaaS. This will not work for Kind/Minikube and should be changed to NodePort.
+  type: LoadBalancer
+  # If you are using a static or pre-allocated IP, uncomment below and provide your IP.
+  # loadBalancerIP: INSERT_LB_IP

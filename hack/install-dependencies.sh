@@ -65,10 +65,8 @@ echo "******************************"
 kubectl create ns eirini-controller
 kubectl create ns cf-workloads
 
-
 VERSION=0.1.0
-curl https://raw.githubusercontent.com/cloudfoundry-incubator/eirini-controller/v$VERSION/deployment/scripts/generate-secrets.sh | bash -s - "*.eirini-controller.svc"
-curl https://raw.githubusercontent.com/cloudfoundry-incubator/eirini-controller/master/deployment/scripts/generate-secrets.sh | bash -s - "*.eirini-controller.svc"
+./hack/generate-eirini-secrets.sh "*.eirini-controller.svc"
 
 WEBHOOK_CA_BUNDLE="$(kubectl get secret -n eirini-controller eirini-webhooks-certs -o jsonpath="{.data['tls\.ca']}")"
 
@@ -117,6 +115,3 @@ echo "******************************"
 echo "Please run following command to complete the installation"
 echo "export REGISTRY_SECRET=\"app-registry-credentials\""
 echo "******************************"
-
-
-
