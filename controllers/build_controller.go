@@ -255,8 +255,8 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					Name:      dropletName,
 					Namespace: dropletNamespace,
 					Labels: map[string]string{
-						"apps.cloudfoundry.org/buildGuid": currentBuild.Name,
-						handlers.LabelAppGUID:             app.GetName(),
+						handlers.LabelBuildGUID: currentBuild.Name,
+						handlers.LabelAppGUID:   app.GetName(),
 					},
 				},
 				Spec: cfappsv1alpha1.DropletSpec{

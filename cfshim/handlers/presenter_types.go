@@ -3,6 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
@@ -112,7 +114,6 @@ func formatAppToPresenter(app *appsv1alpha1.App) CFAPIPresenterAppResource {
 }
 
 func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
-
 	var dropletRef *CFAPIBuildDroplet
 	if build.Status.DropletReference.Name != "" {
 		dropletRef = &CFAPIBuildDroplet{
@@ -122,7 +123,7 @@ func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
 
 	toReturn := CFAPIBuildResource{
 		GUID:      build.Name,
-		State:     "",
+		State:     deriveBuildState(build.Status.Conditions),
 		CreatedAt: build.CreationTimestamp.UTC().Format(time.RFC3339),
 		UpdatedAt: "",
 		Lifecycle: CFAPILifecycle{
@@ -156,6 +157,22 @@ func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
 	}
 	toReturn.UpdatedAt = updatedAt
 	return toReturn
+}
+
+func deriveBuildState(conditions []metav1.Condition) string {
+	if meta.IsStatusConditionTrue(conditions, appsv1alpha1.StagingConditionType) {
+		return "STAGING"
+	}
+
+	if meta.IsStatusConditionTrue(conditions, appsv1alpha1.SucceededConditionType) &&
+		meta.IsStatusConditionTrue(conditions, appsv1alpha1.ReadyConditionType) {
+		return "STAGED"
+	} else if meta.IsStatusConditionFalse(conditions, appsv1alpha1.SucceededConditionType) ||
+		meta.IsStatusConditionFalse(conditions, appsv1alpha1.ReadyConditionType) {
+		return "FAILED"
+	} else {
+		return "UNKNOWN"
+	}
 }
 
 //---------------------------------------------------------------------------------------
@@ -260,6 +277,16 @@ func formatPresenterPackageResponse(pk *appsv1alpha1.Package) CFAPIPresenterPack
 	}
 	toReturn.UpdatedAt = updatedAt
 	return toReturn
+}
+
+func derivePackageState(Conditions []metav1.Condition) string {
+	if meta.IsStatusConditionTrue(Conditions, "Succeeded") &&
+		meta.IsStatusConditionTrue(Conditions, "Uploaded") &&
+		meta.IsStatusConditionTrue(Conditions, "Ready") {
+		return "READY"
+	} else {
+		return "AWAITING_UPLOAD"
+	}
 }
 
 //---------------------------------------------------------------------------------------

@@ -3,6 +3,7 @@ package handlers
 const (
 	LabelAppGUID     = "apps.cloudfoundry.org/appGuid"
 	LabelPackageGUID = "apps.cloudfoundry.org/packageGuid"
+	LabelBuildGUID   = "apps.cloudfoundry.org/buildGuid"
 )
 
 type Filter interface {

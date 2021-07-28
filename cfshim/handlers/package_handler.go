@@ -368,13 +368,3 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(formattedMatchingPackage)
 }
-
-func derivePackageState(Conditions []metav1.Condition) string {
-	if meta.IsStatusConditionTrue(Conditions, "Succeeded") &&
-		meta.IsStatusConditionTrue(Conditions, "Uploaded") &&
-		meta.IsStatusConditionTrue(Conditions, "Ready") {
-		return "READY"
-	} else {
-		return "AWAITING_UPLOAD"
-	}
-}
