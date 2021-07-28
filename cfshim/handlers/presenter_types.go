@@ -162,16 +162,13 @@ func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
 func deriveBuildState(conditions []metav1.Condition) string {
 	if meta.IsStatusConditionTrue(conditions, appsv1alpha1.StagingConditionType) {
 		return "STAGING"
-	}
-
-	if meta.IsStatusConditionTrue(conditions, appsv1alpha1.SucceededConditionType) &&
-		meta.IsStatusConditionTrue(conditions, appsv1alpha1.ReadyConditionType) {
+	} else if meta.IsStatusConditionTrue(conditions, appsv1alpha1.SucceededConditionType) {
 		return "STAGED"
-	} else if meta.IsStatusConditionFalse(conditions, appsv1alpha1.SucceededConditionType) ||
-		meta.IsStatusConditionFalse(conditions, appsv1alpha1.ReadyConditionType) {
+	} else if meta.IsStatusConditionFalse(conditions, appsv1alpha1.SucceededConditionType) {
 		return "FAILED"
 	} else {
-		return "UNKNOWN"
+		// If we're in an Unknown state, then assume the CRD was just created and consider it staging
+		return "STAGING"
 	}
 }
 
