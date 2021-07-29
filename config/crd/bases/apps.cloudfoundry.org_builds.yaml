@@ -163,34 +163,6 @@ spec:
                 - kind
                 - name
                 type: object
-              kpackBuildRef:
-                description: Contains a reference to the latest kpack build CRD for the kpack image (uses the kpackBuildSelector)
-                properties:
-                  apiVersion:
-                    type: string
-                  kind:
-                    type: string
-                  name:
-                    type: string
-                required:
-                - apiVersion
-                - kind
-                - name
-                type: object
-              kpackImageRef:
-                description: Contains a reference to the kpack image CRD for the cf Build
-                properties:
-                  apiVersion:
-                    type: string
-                  kind:
-                    type: string
-                  name:
-                    type: string
-                required:
-                - apiVersion
-                - kind
-                - name
-                type: object
             required:
             - conditions
             type: object

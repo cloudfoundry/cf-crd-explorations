@@ -48,10 +48,6 @@ type BuildStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	// Contains a reference to the compiled build image
 	DropletReference DropletReference `json:"dropletRef,omitempty"`
-	// Contains a reference to the kpack image CRD for the cf Build
-	KpackImageReference KpackImageReference `json:"kpackImageRef,omitempty"`
-	// Contains a reference to the latest kpack build CRD for the kpack image (uses the kpackBuildSelector)
-	KpackBuildReference KpackBuildReference `json:"kpackBuildRef,omitempty"`
 
 	// TODO: figure out why omitempty behaves weird, seems like kubectl doesn't even represent internally with an empty slice
 	// Contains the current status of the build

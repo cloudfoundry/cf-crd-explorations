@@ -45,13 +45,6 @@ type KpackImageReference struct {
 	Name       string `json:"name"`
 }
 
-// KpackBuildReference is used by build
-type KpackBuildReference struct {
-	Kind       string `json:"kind"`
-	APIVersion string `json:"apiVersion"`
-	Name       string `json:"name"`
-}
-
 // Checksum defines checksum for packaged images for now
 type Checksum struct {
 	Type  CheckSumType `json:"type"`
