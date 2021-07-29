@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
-# echo -ne "${RED}CF Shim for Kubernetes Spike Demo!\n${NC}\n"
-
 echo "
-██████ ███████     ███████ ██   ██ ██ ███    ███     ███████  ██████  ██████      ██   ██ ██    ██ ██████  ███████ ██████  ███    ██ ███████ ████████ ███████ ███████ 
-██      ██          ██      ██   ██ ██ ████  ████     ██      ██    ██ ██   ██     ██  ██  ██    ██ ██   ██ ██      ██   ██ ████   ██ ██         ██    ██      ██      
-██      █████       ███████ ███████ ██ ██ ████ ██     █████   ██    ██ ██████      █████   ██    ██ ██████  █████   ██████  ██ ██  ██ █████      ██    █████   ███████ 
-██      ██               ██ ██   ██ ██ ██  ██  ██     ██      ██    ██ ██   ██     ██  ██  ██    ██ ██   ██ ██      ██   ██ ██  ██ ██ ██         ██    ██           ██ 
- ██████ ██          ███████ ██   ██ ██ ██      ██     ██       ██████  ██   ██     ██   ██  ██████  ██████  ███████ ██   ██ ██   ████ ███████    ██    ███████ ███████
+ ██████╗███████╗    ███████╗██╗  ██╗██╗███╗   ███╗    ███████╗ ██████╗ ██████╗     ██╗  ██╗██╗   ██╗██████╗ ███████╗██████╗ ███╗   ██╗███████╗████████╗███████╗███████╗
+██╔════╝██╔════╝    ██╔════╝██║  ██║██║████╗ ████║    ██╔════╝██╔═══██╗██╔══██╗    ██║ ██╔╝██║   ██║██╔══██╗██╔════╝██╔══██╗████╗  ██║██╔════╝╚══██╔══╝██╔════╝██╔════╝
+██║     █████╗      ███████╗███████║██║██╔████╔██║    █████╗  ██║   ██║██████╔╝    █████╔╝ ██║   ██║██████╔╝█████╗  ██████╔╝██╔██╗ ██║█████╗     ██║   █████╗  ███████╗
+██║     ██╔══╝      ╚════██║██╔══██║██║██║╚██╔╝██║    ██╔══╝  ██║   ██║██╔══██╗    ██╔═██╗ ██║   ██║██╔══██╗██╔══╝  ██╔══██╗██║╚██╗██║██╔══╝     ██║   ██╔══╝  ╚════██║
+╚██████╗██║         ███████║██║  ██║██║██║ ╚═╝ ██║    ██║     ╚██████╔╝██║  ██║    ██║  ██╗╚██████╔╝██████╔╝███████╗██║  ██║██║ ╚████║███████╗   ██║   ███████╗███████║
+ ╚═════╝╚═╝         ╚══════╝╚═╝  ╚═╝╚═╝╚═╝     ╚═╝    ╚═╝      ╚═════╝ ╚═╝  ╚═╝    ╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚══════╝╚══════╝
 "
 
+HEADING='\033[0;33m'
+SUBHEADING='\033[1;36m'
+REQUEST_ENDPOINT='\033[1;32m'
+PROGRESS='\033[1;34m'
 
-RED='\033[0;31m'
-LIGHTCYAN='\033[1;36m'
-LIGHTGREEN='\033[1;32m'
 NC='\033[0m'
 
 CF_SHIM_HOST=$1
@@ -32,19 +32,22 @@ EOF
 }
 
 function create_app {
-    printf "${LIGHTCYAN}Create App${NC}\n"
-    echo -ne "${LIGHTGREEN}POST $CF_SHIM_HOST/v3/apps${NC}\n"
-    curl -s -v "$CF_SHIM_HOST/v3/apps" -X POST -H "Content-type: application/json" -d "$(generate_app_payload)" | tee $tmp_dir/app.json
+    printf "${HEADING}Create App${NC}\n"
+    echo -e "${SUBHEADING}Request endpoint${NC}"
+    echo -e "${REQUEST_ENDPOINT}POST $CF_SHIM_HOST/v3/apps${NC}"
+    echo -e "${SUBHEADING}Request payload${NC}"
+    generate_app_payload | jq .
+    curl -s "$CF_SHIM_HOST/v3/apps" -X POST -H "Content-type: application/json" -d "$(generate_app_payload)" > $tmp_dir/app.json
     
-    printf "${LIGHTCYAN}Response payload${NC}\n"
+    printf "${SUBHEADING}Response payload${NC}\n"
     cat $tmp_dir/app.json | jq .
 
     app_guid=$(cat $tmp_dir/app.json | jq -r .guid)
 }
 
 function inspect_app {
-    printf "${LIGHTCYAN}Inspecting App $app_guid${NC}\n"
-    echo -ne "${LIGHTGREEN}GET $CF_SHIM_HOST/v3/apps/$app_guid${NC}\n"
+    printf "${SUBHEADING}Inspecting App $app_guid${NC}\n"
+    echo -e "${REQUEST_ENDPOINT}GET $CF_SHIM_HOST/v3/apps/$app_guid${NC}"
     curl -s "$CF_SHIM_HOST/v3/apps/$app_guid" | jq .
 }
 
@@ -56,29 +59,31 @@ EOF
 }
 
 function create_empty_package {
-    printf "${LIGHTCYAN}Create empty Package${NC}\n"
-    echo -ne "${LIGHTGREEN}POST $CF_SHIM_HOST/v3/packages${NC}\n"
-    curl -s -v "$CF_SHIM_HOST/v3/packages" -X POST -H "Content-type: application/json" -d "$(generate_empty_package_payload)" | tee $tmp_dir/package.json
+    printf "${HEADING}Create empty Package${NC}\n"
+    echo -e "${REQUEST_ENDPOINT}POST $CF_SHIM_HOST/v3/packages${NC}"
+    echo -e "${SUBHEADING}Request payload${NC}"
+    generate_empty_package_payload | jq .
+    curl -s "$CF_SHIM_HOST/v3/packages" -X POST -H "Content-type: application/json" -d "$(generate_empty_package_payload)" > $tmp_dir/package.json
 
-    printf "${LIGHTCYAN}Response payload${NC}\n"
+    printf "${HEADING}Response payload${NC}\n"
     cat $tmp_dir/package.json | jq .
 
     package_guid=$(cat $tmp_dir/package.json | jq -r .guid)
 }
 
 function upload_bits_to_package {
-    printf "${LIGHTCYAN}Upload bits to Package $package_guid${NC}\n"
-    echo -ne "${LIGHTGREEN}POST $CF_SHIM_HOST/v3/packages/$package_guid/upload${NC}\n"
-    curl -s "$CF_SHIM_HOST/v3/packages/$package_guid/upload" -X POST -F bits=@"node.zip" | tee $tmp_dir/package.json
+    printf "${HEADING}Upload bits to Package $package_guid${NC}\n"
+    echo -e "${REQUEST_ENDPOINT}POST $CF_SHIM_HOST/v3/packages/$package_guid/upload${NC}"
+    curl -s "$CF_SHIM_HOST/v3/packages/$package_guid/upload" -X POST -F bits=@"node.zip" > $tmp_dir/package.json
 
-    printf "${LIGHTCYAN}Response payload${NC}\n"
+    printf "${SUBHEADING}Response payload${NC}\n"
     cat $tmp_dir/package.json | jq .
 }
 
 function inspect_package {
-    printf "${LIGHTCYAN}Inspecting Package $package_guid${NC}\n"
-    echo -ne "${LIGHTGREEN}GET $CF_SHIM_HOST/v3/packages/$package_guid${NC}\n"
-    printf "${LIGHTCYAN}Response payload${NC}\n"
+    printf "${HEADING}Inspecting Package $package_guid${NC}\n"
+    echo -e "${REQUEST_ENDPOINT}GET $CF_SHIM_HOST/v3/packages/$package_guid${NC}"
+    printf "${SUBHEADING}Response payload${NC}\n"
     curl -s "$CF_SHIM_HOST/v3/packages/$package_guid" | jq .
 }
 
@@ -89,39 +94,41 @@ EOF
 }
 
 function create_build {
-    printf "${LIGHTCYAN}Create Build with Package $package_guid${NC}\n"
-    echo -ne "${LIGHTGREEN}POST $CF_SHIM_HOST/v3/builds${NC}\n"
-    curl -s "$CF_SHIM_HOST/v3/builds" -X POST -H "Content-type: application/json" -d "$(generate_build_payload)" | tee $tmp_dir/build.json
+    printf "${HEADING}Create Build with Package $package_guid${NC}\n"
+    echo -e "${REQUEST_ENDPOINT}POST $CF_SHIM_HOST/v3/builds${NC}"
+    echo -e "${SUBHEADING}Request payload${NC}"
+    generate_build_payload | jq .
+    curl -s "$CF_SHIM_HOST/v3/builds" -X POST -H "Content-type: application/json" -d "$(generate_build_payload)" > $tmp_dir/build.json
 
-    printf "${LIGHTCYAN}Response payload${NC}\n"
+    printf "${SUBHEADING}Response payload${NC}\n"
     cat $tmp_dir/build.json | jq .
 
     build_guid=$(cat $tmp_dir/build.json | jq -r .guid)
 }
 
 function inspect_build {
-    echo -ne "${LIGHTCYAN}Waiting for Droplet guid${NC}\n"
-    echo -ne "${LIGHTGREEN}GET $CF_SHIM_HOST/v3/builds/$build_guid${NC}\n"
+    echo -e "${HEADING}Waiting for Droplet guid${NC}"
+    echo -e "${REQUEST_ENDPOINT}GET $CF_SHIM_HOST/v3/builds/$build_guid${NC}"
     while : ; do
         droplet=$(curl -s -s "$CF_SHIM_HOST/v3/builds/$build_guid" | jq .droplet)
         
         if [ "null" == "$droplet" ]; then
-            echo -ne "${RED}."
+            echo -ne "."
             sleep 1
         else
-            echo -ne "${LIGHTCYAN}Droplet set!${NC}\n"
+            echo -e "${SUBHEADING}Droplet set!${NC}"
             break
         fi
     done
 
-    printf "${LIGHTCYAN}Inspecting Build $build_guid${NC}\n"
+    printf "${HEADING}Inspecting Build $build_guid${NC}\n"
     curl -s "$CF_SHIM_HOST/v3/builds/$build_guid" | tee $tmp_dir/build_with_droplet.json
 
-    printf "${LIGHTCYAN}Response payload${NC}\n"
+    printf "${SUBHEADING}Response payload${NC}\n"
     cat $tmp_dir/build_with_droplet.json | jq .
     
     droplet_guid=$(cat $tmp_dir/build_with_droplet.json | jq -r .droplet.guid)
-    printf "${LIGHTCYAN}Build produced with Droplet: $droplet_guid${NC}\n"
+    printf "${SUBHEADING}Build produced with Droplet: $droplet_guid${NC}\n"
 }
 
 function generate_set_droplet_payload {
@@ -131,70 +138,72 @@ EOF
 }
 
 function set_droplet {
-    printf "${LIGHTCYAN}Setting Droplet $droplet_guid on App $app_guid${NC}\n"
-    echo -ne "${LIGHTGREEN}PATCH $CF_SHIM_HOST/v3/apps/$app_guid/relationships/current_droplet${NC}\n"
+    printf "${HEADING}Setting Droplet $droplet_guid on App $app_guid${NC}\n"
+    echo -e "${REQUEST_ENDPOINT}PATCH $CF_SHIM_HOST/v3/apps/$app_guid/relationships/current_droplet${NC}"
+    echo -e "${SUBHEADING}Request payload${NC}"
+    generate_set_droplet_payload | jq .
 
     curl -s "$CF_SHIM_HOST/v3/apps/$app_guid/relationships/current_droplet" -X PATCH -H "Content-type: application/json" -d "$(generate_set_droplet_payload)" | jq .
 }
 
 function start_app {
-    printf "${LIGHTCYAN}Starting App $app_guid${NC}\n"
-    printf "${LIGHTGREEN}POST $CF_SHIM_HOST/v3/apps/$app_guid/actions/start${NC}\n"
+    printf "${HEADING}Starting App $app_guid${NC}\n"
+    printf "${REQUEST_ENDPOINT}POST $CF_SHIM_HOST/v3/apps/$app_guid/actions/start${NC}\n"
     curl -s "$CF_SHIM_HOST/v3/apps/$app_guid/actions/start" -X POST | jq .
 }
 
 function stop_app {
-    printf "${LIGHTCYAN}Stopping App $app_guid${NC}\n"
-    printf "${LIGHTGREEN}POST $CF_SHIM_HOST/v3/apps/$app_guid/actions/stop${NC}\n"
+    printf "${HEADING}Stopping App $app_guid${NC}\n"
+    printf "${REQUEST_ENDPOINT}POST $CF_SHIM_HOST/v3/apps/$app_guid/actions/stop${NC}\n"
     curl -s "$CF_SHIM_HOST/v3/apps/$app_guid/actions/stop" -X POST | jq .
 }
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to create an App"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 create_app
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to create a Package for App $app_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 create_empty_package
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to upload bits to Package $package_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 upload_bits_to_package
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to inspect Package $package_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 inspect_package
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to create Build for Package $package_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 create_build
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to inspect Build $build_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 inspect_build
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to set Droplet $droplet_guid on App $app_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 set_droplet
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to start App $app_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 start_app
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to inspect App $app_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 inspect_app
 
-echo -ne "\n\n\n"
+echo -e "\n\n"
 read -n 1 -p "Press any key to stop App $app_guid"
-echo -ne "\n\n\n"
+echo -e "\n\n"
 stop_app

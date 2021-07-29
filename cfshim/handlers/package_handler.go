@@ -334,6 +334,18 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	updatedPkg := pkg.DeepCopy()
+
+	imgDigest, err := image.Digest()
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	updatedPkg.Status.Checksum = appsv1alpha1.Checksum{
+		Type:  "sha256",
+		Value: imgDigest.String(),
+	}
+
 	updatedPkg.Spec.Source = appsv1alpha1.PackageSource{
 		Registry: appsv1alpha1.Registry{
 			Image:            ref.Name(),
@@ -359,6 +371,12 @@ func (p *PackageHandler) UploadPackageHandler(w http.ResponseWriter, r *http.Req
 		Message: "",
 	})
 	err = p.Client.Patch(ctx, updatedPkg, client.MergeFrom(pkg))
+	if err != nil {
+		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
+		return
+	}
+
+	err = p.Client.Status().Update(ctx, updatedPkg)
 	if err != nil {
 		ReturnFormattedError(w, 500, "ServerError", err.Error(), 10001)
 		return
