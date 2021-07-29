@@ -188,7 +188,7 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		// These fields will be used to create the droplet later, dropletImageRegistry is made differently for Buildpack builds
 		buildSucceeded := metav1.ConditionUnknown
-		dropletName := "droplet-" + currentBuild.Name
+		dropletName := currentBuild.Name
 		dropletNamespace := currentBuild.Namespace
 		dropletImageRegistry := cfappsv1alpha1.Registry{
 			Image:            buildPackage.Spec.Source.Registry.Image,

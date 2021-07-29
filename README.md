@@ -221,7 +221,7 @@ Update the App to set the current droplet.
 ```
 curl "http://localhost:9000/v3/apps/9f924342-472a-43a1-9db9-54beba5401e2/relationships/current_droplet" \
   -X PATCH \
-  -d '{"data":{"guid": "droplet-3874fb78-a0da-414a-ad6f-b2c18e904e57"}}'
+  -d '{"data":{"guid": "3874fb78-a0da-414a-ad6f-b2c18e904e57"}}'
 
 ```
 
