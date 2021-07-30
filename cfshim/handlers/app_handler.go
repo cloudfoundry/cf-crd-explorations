@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/pkg/apis/clientauthentication/v1beta1"
 	"k8s.io/client-go/rest"
 
 	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
@@ -76,15 +78,44 @@ type GetListResponse struct {
 func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	config := ctrl.GetConfigOrDie()
 	config = rest.AnonymousClientConfig(config)
+
+	// TODO: read these out of configmap
+	config.Host = "https://35.195.77.247"
+	config.CAData = []byte(`-----BEGIN CERTIFICATE-----
+MIIBtjCCAVugAwIBAgIQPyaMuyILcGcBdCd7HaoPhzAKBggqhkjOPQQDAjAqMSgw
+JgYDVQQDEx9QaW5uaXBlZCBJbXBlcnNvbmF0aW9uIFByb3h5IENBMCAXDTIxMDcy
+NjEwNTUyN1oYDzIxMjEwNzAyMTA1NTM3WjAqMSgwJgYDVQQDEx9QaW5uaXBlZCBJ
+bXBlcnNvbmF0aW9uIFByb3h5IENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE
+R0TDRjQTZhUvut8AsOHiy/8qUJhRi/r+O8/R0VsSYz3iNS17MjWzcmAS+7i5k+Go
+k/GFpEuIvH38WVt+pEMQWaNhMF8wDgYDVR0PAQH/BAQDAgKEMB0GA1UdJQQWMBQG
+CCsGAQUFBwMCBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSJ
+f913LVmL3ygEDnL/60EAk+LJ8zAKBggqhkjOPQQDAgNJADBGAiEAz91Kk0uq4u5O
+5nTyWzkUuXXoFnRqeAaKsgetTPaGwewCIQCmPQj7LcdjZk4asLFXkkWq5p14j+lN
+TR1oa2RsQP/CHQ==
+-----END CERTIFICATE-----`)
+
 	authHeader := r.Header.Get("Authorization")
-	if authHeader != "" {
-		config.BearerToken = strings.Split(authHeader, "bearer ")[1]
+	if strings.HasPrefix(authHeader, "execcredential") {
+		b64creds := strings.Split(authHeader, "execcredential ")[1]
+		jsoncreds, err := base64.StdEncoding.DecodeString(b64creds)
+		if err != nil {
+			fmt.Printf("err = %+v\n", err)
+			http.Error(w, "auth borked", http.StatusBadRequest)
+		}
+
+		var creds v1beta1.ExecCredential
+		err = json.Unmarshal(jsoncreds, &creds)
+		if err != nil {
+			fmt.Printf("err = %+v\n", err)
+			http.Error(w, "auth borked json", http.StatusBadRequest)
+		}
+
+		config.CertData = []byte(creds.Status.ClientCertificateData)
+		config.KeyData = []byte(creds.Status.ClientKeyData)
+		config.BearerToken = creds.Status.Token
 	}
 
-	fmt.Printf("config.BearerToken = \"%s\"\n", config.BearerToken)
-
-	var err error
-	a.Client, err = client.New(config, client.Options{
+	authorizedClient, err := client.New(config, client.Options{
 		Scheme: a.Client.Scheme(),
 		Mapper: a.Client.RESTMapper(),
 	})
@@ -102,7 +133,7 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	formatQueryParams(queryParameters)
 
 	// Apply filter to AllApps and store result in matchedApps
-	matchedApps, err := getAppListFromQuery(&a.Client, queryParameters)
+	matchedApps, err := getAppListFromQuery(&authorizedClient, queryParameters)
 	if err != nil {
 		// Print the error if K8s client fails
 		fmt.Printf("Error matching app: %v", err)
