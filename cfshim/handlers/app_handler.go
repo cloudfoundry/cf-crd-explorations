@@ -115,6 +115,11 @@ TR1oa2RsQP/CHQ==
 		config.BearerToken = creds.Status.Token
 	}
 
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		auth := strings.Split(authHeader, "Bearer ")[1]
+		config.BearerToken = auth
+	}
+
 	authorizedClient, err := client.New(config, client.Options{
 		Scheme: a.Client.Scheme(),
 		Mapper: a.Client.RESTMapper(),
