@@ -13,6 +13,9 @@ spec:
     kind: Build
     listKind: BuildList
     plural: builds
+    shortNames:
+    - cfb
+    - cfbuild
     singular: build
   scope: Namespaced
   versions:

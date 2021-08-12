@@ -57,6 +57,7 @@ type BuildStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 // Build is the Schema for the builds API
+//+kubebuilder:resource:shortName=cfb;cfbuild
 type Build struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

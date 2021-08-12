@@ -39,7 +39,11 @@ spec:
           protocol: TCP
         env:
         - name: REGISTRY_TAG_BASE
-          value: "gcr.io/cf-relint-greengrass"
+          value: "gcr.io/cf-relint-greengrass/cf-crd-staging-spike/kpack"
+        - name: PACKAGE_REGISTRY_TAG_BASE
+          value: "gcr.io/cf-relint-greengrass/cf-crd-staging-spike/packages"
+        - name: REGISTRY_SECRET
+          value: "app-registry-credentials"
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
