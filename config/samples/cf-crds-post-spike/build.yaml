@@ -25,10 +25,11 @@ spec:
     apiVersion: apps.cloudfoundry.org/v1alpha1
     kind: CFPackage
     name: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
-  lifecycleData:
+  lifecycle:
     type: buildpack
-    buildpacks: []
-    stack: cflinuxfs3
+    data:
+      buildpacks: []
+      stack: cflinuxfs3
 status:
  conditions:
  - type: Succeeded

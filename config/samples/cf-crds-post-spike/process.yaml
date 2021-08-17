@@ -3,7 +3,6 @@
 apiVersion: apps.cloudfoundry.org/v1alpha1
 kind: CFProcess
 metadata:
-  generation: 1
   # apps.cloudfoundry.org/ labels are all managed by a mutating webhook based on appRef and its droplet
   labels:
     apps.cloudfoundry.org/appGuid: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
@@ -29,14 +28,13 @@ spec:
     data:
       invocationTimeoutSeconds: 0
       timeoutSeconds: 0
-  instances: 4 #desired instances
+  desiredInstances: 4 #desired instances
   memoryMB: 500
   ports:
   - 8080
   processType: web
-  state: STARTED
 status:
-  instances: 3 #actual running instances
+  runningInstances: 3 #actual running instances
   conditions:
   - type: Running
     status: "True" # True if any replicas are running
