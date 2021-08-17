@@ -18,8 +18,6 @@ metadata:
     uid: 2c5e9145-dee1-407f-b507-4ea84b25a7b4
 spec:
   appRef:
-    apiVersion: apps.cloudfoundry.org/v1alpha1
-    kind: CFApp
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
   command: bundle exec rackup config.ru -p $PORT -o 0.0.0.0
   diskQuotaMB: 512

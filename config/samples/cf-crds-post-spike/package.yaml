@@ -17,8 +17,6 @@ metadata:
 spec:
   type: bits
   appRef:
-    apiVersion: "apps.cloudfoundry.org/v1alpha1"
-    kind: "CFApp"
     name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a # Enforced via a Validating Webhook to reject empty or non-valid appRefs/appGUID
   source: # keeping this source block above registry gives us flexibility to support other kpack source types: https://github.com/pivotal/kpack/blob/main/docs/image.md#source-configuration
     registry:
@@ -26,7 +24,7 @@ spec:
       imagePullSecrets:
       - name: app-registry-credentials
 status:
-  conditions: # These should be managed by a controller, not the shim
+  conditions:
   - type: Succeeded
     status: "True"
     reason: Uploaded
