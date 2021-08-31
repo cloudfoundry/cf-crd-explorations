@@ -1,0 +1,44 @@
+---
+# Defines a build for the provided package. Triggers the staging process which results in a runnable container image. 
+# Successful CF Builds automatically receive CF Droplets.
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: CFBuild
+metadata:
+  # apps.cloudfoundry.org/ labels are all managed by a mutating webhook
+  labels:
+    apps.cloudfoundry.org/appGuid: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+    apps.cloudfoundry.org/packageGuid: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
+  name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
+  namespace: default
+# ownerReferences are managed by mutating webhook that looks at appRef
+ ownerReferences:
+ - apiVersion: apps.cloudfoundry.org/v1alpha1
+   kind: CFApp
+   name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+   uid: 2c5e9145-dee1-407f-b507-4ea84b25a7b4
+spec:
+  appRef:
+    name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+  packageRef:
+    name: ac85ad52-f52f-48e3-8c99-5e7badbe79c5
+  lifecycle:
+    type: buildpack
+    data:
+      buildpacks: []
+      stack: cflinuxfs3
+status:
+ conditions:
+ - type: Succeeded
+   status: "True"
+   reason: Buildpack
+   message: ""
+ - type: Staging
+   status: "False"
+   reason: Succeeded
+   message: ""
+ - type: Ready
+   status: "True"
+   reason: Buildpack
+   message: ""
+ dropletRef: # This is used to support the droplet block of the GET Build endpoint of the CF V3 API
+   name: 1591ee05-e208-4cf3-a662-1c2da42f20a7
