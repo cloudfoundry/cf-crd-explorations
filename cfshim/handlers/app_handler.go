@@ -79,21 +79,23 @@ func (a *AppHandler) ListAppsHandler(w http.ResponseWriter, r *http.Request) {
 	config := ctrl.GetConfigOrDie()
 	config = rest.AnonymousClientConfig(config)
 
-	// TODO: read these out of configmap
-	config.Host = "https://35.195.77.247"
-	config.CAData = []byte(`-----BEGIN CERTIFICATE-----
-MIIBtjCCAVugAwIBAgIQPyaMuyILcGcBdCd7HaoPhzAKBggqhkjOPQQDAjAqMSgw
-JgYDVQQDEx9QaW5uaXBlZCBJbXBlcnNvbmF0aW9uIFByb3h5IENBMCAXDTIxMDcy
-NjEwNTUyN1oYDzIxMjEwNzAyMTA1NTM3WjAqMSgwJgYDVQQDEx9QaW5uaXBlZCBJ
-bXBlcnNvbmF0aW9uIFByb3h5IENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE
-R0TDRjQTZhUvut8AsOHiy/8qUJhRi/r+O8/R0VsSYz3iNS17MjWzcmAS+7i5k+Go
-k/GFpEuIvH38WVt+pEMQWaNhMF8wDgYDVR0PAQH/BAQDAgKEMB0GA1UdJQQWMBQG
-CCsGAQUFBwMCBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSJ
-f913LVmL3ygEDnL/60EAk+LJ8zAKBggqhkjOPQQDAgNJADBGAiEAz91Kk0uq4u5O
-5nTyWzkUuXXoFnRqeAaKsgetTPaGwewCIQCmPQj7LcdjZk4asLFXkkWq5p14j+lN
-TR1oa2RsQP/CHQ==
------END CERTIFICATE-----`)
-
+	/*
+			// TODO: this is the hardcoded pinniped expiriment values, obviously not great to have them
+			// However, leaving them commented out if anyone finds them useful
+			config.Host = "https://35.195.77.247"
+			config.CAData = []byte(`-----BEGIN CERTIFICATE-----
+		MIIBtjCCAVugAwIBAgIQPyaMuyILcGcBdCd7HaoPhzAKBggqhkjOPQQDAjAqMSgw
+		JgYDVQQDEx9QaW5uaXBlZCBJbXBlcnNvbmF0aW9uIFByb3h5IENBMCAXDTIxMDcy
+		NjEwNTUyN1oYDzIxMjEwNzAyMTA1NTM3WjAqMSgwJgYDVQQDEx9QaW5uaXBlZCBJ
+		bXBlcnNvbmF0aW9uIFByb3h5IENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE
+		R0TDRjQTZhUvut8AsOHiy/8qUJhRi/r+O8/R0VsSYz3iNS17MjWzcmAS+7i5k+Go
+		k/GFpEuIvH38WVt+pEMQWaNhMF8wDgYDVR0PAQH/BAQDAgKEMB0GA1UdJQQWMBQG
+		CCsGAQUFBwMCBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSJ
+		f913LVmL3ygEDnL/60EAk+LJ8zAKBggqhkjOPQQDAgNJADBGAiEAz91Kk0uq4u5O
+		5nTyWzkUuXXoFnRqeAaKsgetTPaGwewCIQCmPQj7LcdjZk4asLFXkkWq5p14j+lN
+		TR1oa2RsQP/CHQ==
+		-----END CERTIFICATE-----`)
+	*/
 	authHeader := r.Header.Get("Authorization")
 	if strings.HasPrefix(authHeader, "execcredential") {
 		b64creds := strings.Split(authHeader, "execcredential ")[1]
