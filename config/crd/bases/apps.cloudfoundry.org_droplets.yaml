@@ -69,9 +69,17 @@ spec:
               processTypes:
                 description: Specifies the process types and associated start commands for the Droplet
                 items:
-                  additionalProperties:
-                    type: string
-                  description: ProcessType is a map of process names and associated start commands for the Droplet
+                  properties:
+                    command:
+                      type: string
+                    default:
+                      type: boolean
+                    type:
+                      type: string
+                  required:
+                  - command
+                  - default
+                  - type
                   type: object
                 type: array
               registry:
@@ -102,6 +110,7 @@ spec:
             required:
             - appRef
             - buildRef
+            - processTypes
             - type
             type: object
           status:

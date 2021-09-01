@@ -53,6 +53,31 @@ type AppSpec struct {
 
 	// Specifies the Droplet info for the droplet that is currently assigned (active) for the app
 	CurrentDropletRef DropletReference `json:"currentDropletRef"`
+
+	// Specifies the name of the process in the App
+	ProcessType string `json:"processType"`
+
+	// Specifies the Command(k8s) ENTRYPOINT(Docker) of the Process
+	Command string `json:"command,omitempty"`
+
+	// Specifies the Process disk limit
+	DiskQuotaMB int64 `json:"diskQuotaMB"`
+
+	// Specifies the Liveness Probe (k8s) details of the Process
+	HealthCheck HealthCheck `json:"healthCheck"`
+
+	// Specifies the number of Process replicas to deploy
+	Instances int `json:"instances"`
+
+	// Specifies the Process memory limit
+	MemoryMB int64 `json:"memoryMB"`
+
+	// Specifies the Process ports to expose
+	Ports []int32 `json:"ports"`
+
+	// Specifies the sidecars to be run alongside the Process
+	// TODO: Should this be its own CRD?, essentially lives at AppManifest and Process level simultaneously
+	Sidecars []ProcessSidecar `json:"sidecars,omitempty"`
 }
 
 // AppStatus defines the observed state of App

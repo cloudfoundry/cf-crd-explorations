@@ -41,10 +41,16 @@ type DropletSpec struct {
 	Registry Registry `json:"registry,omitempty"`
 
 	// Specifies the process types and associated start commands for the Droplet
-	ProcessTypes []ProcessType `json:"processTypes,omitempty"`
+	ProcessTypes []DropletProcessType `json:"processTypes"`
 
 	// Specifies the exposed ports for the application
 	Ports []int32 `json:"ports,omitempty"`
+}
+
+type DropletProcessType struct {
+	Type    string `json:"type"`
+	Command string `json:"command"`
+	Default bool   `json:"default"`
 }
 
 type Image struct {

@@ -18,15 +18,14 @@ package controllers
 
 import (
 	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
+	eiriniv1 "code.cloudfoundry.org/eirini/pkg/apis/eirini/v1"
 	"context"
-	"errors"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
-
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -81,92 +80,89 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// A Process gets created for every process type specified in the Droplet
-	var errStrings []string
-	logger.Info("Starting process creation")
-	for _, process := range droplet.Spec.ProcessTypes {
-		for processType, command := range process {
-			logger.Info("Creating process type: " + processType)
-			// Default 1 for web process or Default 0
-			instances := 0
-			if processType == "web" {
-				instances = 1
-			}
-
-			var exposedPorts []int32
-			if len(droplet.Spec.Ports) == 0 {
-				exposedPorts = []int32{8080}
-			} else {
-				exposedPorts = droplet.Spec.Ports
-			}
-
-			// TODO: This is sufficient for now. This is used to Create new processes as well as Update existing processes
-			// For now let's make the "guid" a combo of app guid + process type
-			// In CF for VMs there can be multiple processes of a given type so this will not work 100% of the time if we
-			// we need to support that
-			processGuid := fmt.Sprintf("%s-%s", app.Spec.Name, processType)
-			desiredProcess := cfappsv1alpha1.Process{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      processGuid,
-					Namespace: app.Namespace,
-					Labels: map[string]string{
-						handlers.LabelAppGUID:               app.Name,
-						"apps.cloudfoundry.org/processGuid": processGuid,
-						"apps.cloudfoundry.org/processType": processType,
-					},
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
-							Kind:       app.Kind,
-							Name:       app.Name,
-							UID:        app.UID,
-						},
-					},
-				},
-				Spec: cfappsv1alpha1.ProcessSpec{
-					AppRef: cfappsv1alpha1.ApplicationReference{
-						Kind:       app.Kind,
-						APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Name:       app.Name,
-					},
-					ProcessType: processType,
-					Command:     command,
-					State:       "STOPPED", // This is the default
-					HealthCheck: cfappsv1alpha1.HealthCheck{
-						// This is set to process since this information needs to be provided later on
-						// API for updating health check: https://v3-apidocs.cloudfoundry.org/version/3.101.0/index.html#update-a-process
-						Type: "process",
-					},
-					Instances:   instances,
-					MemoryMB:    500, // TODO: find CF default values
-					DiskQuotaMB: 512, // TODO: find CF default values
-					Ports:       exposedPorts,
-				},
-			}
-
-			actualProcess := &cfappsv1alpha1.Process{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      processGuid,
-					Namespace: app.Namespace,
-				},
-			}
-
-			result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualProcess, processMutateFunction(actualProcess, &desiredProcess))
-			if err != nil {
-				logger.Info(fmt.Sprintf("Error occurred creating/updating Process: %s, %s", result, err))
-				errStrings = append(errStrings, err.Error())
-			}
-
-			logger.Info(fmt.Sprintf("Successfully Created/Updated App: %s", result))
+	// make sure envSecret is real
+	appEnvSecret := new(corev1.Secret)
+	if app.Spec.EnvSecretName != "" {
+		if err := r.Get(ctx, types.NamespacedName{Name: app.Spec.EnvSecretName, Namespace: req.Namespace}, appEnvSecret); err != nil {
+			logger.Info(fmt.Sprintf("Error fetching appEnvSecret: %s", err))
+			return ctrl.Result{}, err
 		}
 	}
 
-	// Gather all errors from Process creation and return as single error
-	if len(errStrings) != 0 {
-		errorStr := strings.Join(errStrings, ", ")
-		err := errors.New(fmt.Sprintf("There was an error during Process creation: %s\n", errorStr))
-		logger.Info(err.Error())
-		return ctrl.Result{}, err
+	// fetch the LRP if it exists
+	existingLRP := new(eiriniv1.LRP)
+	lrpExists := true
+	if err := r.Get(ctx, types.NamespacedName{Name: app.Name, Namespace: req.Namespace}, existingLRP); err != nil {
+		// TODO: is there value in knowing if this was a client error or just a not-found error?
+		logger.Info(fmt.Sprintf("Could not fetch LRP: %s", err))
+		lrpExists = false
+	}
+
+	// This will create LRPs or remove them if not desired
+	// TODO: Add desiredState stopped case
+	if app.Spec.DesiredState == cfappsv1alpha1.StoppedState {
+		// delete the LRP if it exists and desired state is "STOPPED"
+		if lrpExists {
+			err := r.Client.Delete(ctx, existingLRP)
+			if err != nil {
+				logger.Info(fmt.Sprintf("Error occurred deleting LRP: %s, %s", app.Name, err))
+				return ctrl.Result{}, err
+			}
+			logger.Info(fmt.Sprintf("Successfully Deleted LRP: %s", app.Name))
+		} else {
+			logger.Info("Nothing to do: app desired state is \"STOPPED\"")
+		}
+	} else {
+		// Find the default processType & its command
+		var defaultProcess *cfappsv1alpha1.DropletProcessType
+		for i, process := range droplet.Spec.ProcessTypes {
+			if process.Default {
+				defaultProcess = &droplet.Spec.ProcessTypes[i]
+				break
+			}
+		}
+		var exposedPorts []int32
+		if len(droplet.Spec.Ports) == 0 {
+			exposedPorts = []int32{8080}
+		} else {
+			exposedPorts = droplet.Spec.Ports
+		}
+
+		// update the CF App in-memory
+		// if none are default, this will nil pointer
+		app.Spec.ProcessType = defaultProcess.Type
+		app.Spec.Command = defaultProcess.Command
+		app.Spec.Ports = exposedPorts
+
+		// Update the app CR with the droplet values
+		actualAppCR := &cfappsv1alpha1.App{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      app.Name,
+				Namespace: app.Namespace,
+			},
+		}
+		result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualAppCR, appMutateFunction(actualAppCR, app))
+		if err != nil {
+			logger.Info(fmt.Sprintf("Error occurred updating App: %s, %s", result, err))
+			return ctrl.Result{}, err
+		}
+
+		// Create an LRP and create/update to cluster
+		desiredEiriniLRP := createAppLRP(app, droplet, appEnvSecret)
+		actualEiriniLRP := &eiriniv1.LRP{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      app.Name,
+				Namespace: app.Namespace,
+			},
+		}
+
+		result, err = controllerutil.CreateOrUpdate(ctx, r.Client, actualEiriniLRP, eiriniLRPMutateFunction(actualEiriniLRP, desiredEiriniLRP))
+		if err != nil {
+			logger.Info(fmt.Sprintf("Error occurred updating LRP: %s, %s", result, err))
+			return ctrl.Result{}, err
+		}
+
+		logger.Info(fmt.Sprintf("Successfully Created/Updated LRP: %s", result))
 	}
 
 	logger.Info("Done reconciling")
@@ -199,4 +195,78 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return requests
 		})).
 		Complete(r)
+}
+
+func createAppLRP(app *cfappsv1alpha1.App, droplet *cfappsv1alpha1.Droplet, appEnvSecret *corev1.Secret) *eiriniv1.LRP {
+	// build the Deployment that we want
+	desiredEiriniLRP := eiriniv1.LRP{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      app.Name,
+			Namespace: app.Namespace,
+			Labels: map[string]string{
+				handlers.LabelAppGUID:               app.Name,
+				"apps.cloudfoundry.org/processGuid": app.Name,
+				"apps.cloudfoundry.org/processType": app.Spec.ProcessType,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
+					Kind:       app.Kind,
+					Name:       app.Name,
+					UID:        app.UID,
+				},
+			},
+		},
+		Spec: eiriniv1.LRPSpec{
+			GUID:        app.Name,
+			Version:     app.ResourceVersion, // TODO: Do we care about this?
+			ProcessType: app.Spec.ProcessType,
+			AppName:     app.Spec.Name,
+			AppGUID:     app.Name,
+			OrgName:     "TBD",
+			OrgGUID:     "TBD",
+			SpaceName:   "TBD",
+			SpaceGUID:   "TBD",
+			Image:       droplet.Spec.Registry.Image,
+			Command:     commandForApp(app),
+			Sidecars:    nil,
+			// TODO: Used for Docker images?
+			//PrivateRegistry: &eiriniv1.PrivateRegistry{
+			//	Username: "",
+			//	Password: "",
+			//},
+			// TODO: Can Eirini LRP be updated to take a secret name?
+			Env: secretDataToEnvMap(appEnvSecret.Data),
+			Health: eiriniv1.Healthcheck{
+				// TODO: Revisit int types :)
+				Type:      string(app.Spec.HealthCheck.Type),
+				Port:      app.Spec.Ports[0],
+				Endpoint:  app.Spec.HealthCheck.Data.HTTPEndpoint,
+				TimeoutMs: uint(app.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
+			},
+			Ports:     app.Spec.Ports,
+			Instances: app.Spec.Instances,
+			MemoryMB:  app.Spec.MemoryMB,
+			DiskMB:    app.Spec.DiskQuotaMB,
+			CPUWeight: 0, // TODO: Logic in Cloud Controller is very Diego-centric. Chose not to deal with cpu requests for now
+		},
+	}
+	return &desiredEiriniLRP
+}
+
+func commandForApp(app *cfappsv1alpha1.App) []string {
+	if app.Spec.Command == "" {
+		return []string{}
+	} else if app.Spec.Type == cfappsv1alpha1.BuildpackLifecycle {
+		return []string{"/cnb/lifecycle/launcher", app.Spec.Command}
+	} else {
+		return []string{"/bin/sh", "-c", app.Spec.Command}
+	}
+}
+
+func appMutateFunction(actualApp, desiredApp *cfappsv1alpha1.App) controllerutil.MutateFn {
+	return func() error {
+		actualApp.Spec = desiredApp.Spec
+		return nil
+	}
 }

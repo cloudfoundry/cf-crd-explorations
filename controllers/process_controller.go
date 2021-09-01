@@ -106,59 +106,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	if app.Spec.DesiredState == cfappsv1alpha1.StartedState {
 
-		// build the Deployment that we want
-		desiredEiriniLRP := eiriniv1.LRP{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      process.Name,
-				Namespace: process.Namespace,
-				Labels: map[string]string{
-					handlers.LabelAppGUID:               process.Spec.AppRef.Name,
-					"apps.cloudfoundry.org/processGuid": process.Name,
-					"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
-				},
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
-						Kind:       process.Kind,
-						Name:       process.Name,
-						UID:        process.UID,
-					},
-				},
-			},
-			Spec: eiriniv1.LRPSpec{
-				GUID:        process.Name,
-				Version:     process.ResourceVersion, // TODO: Do we care about this?
-				ProcessType: process.Spec.ProcessType,
-				AppName:     app.Spec.Name,
-				AppGUID:     app.Name,
-				OrgName:     "TBD",
-				OrgGUID:     "TBD",
-				SpaceName:   "TBD",
-				SpaceGUID:   "TBD",
-				Image:       droplet.Spec.Registry.Image,
-				Command:     commandForProcess(process, app),
-				Sidecars:    nil,
-				// TODO: Used for Docker images?
-				//PrivateRegistry: &eiriniv1.PrivateRegistry{
-				//	Username: "",
-				//	Password: "",
-				//},
-				// TODO: Can Eirini LRP be updated to take a secret name?
-				Env: secretDataToEnvMap(appEnvSecret.Data),
-				Health: eiriniv1.Healthcheck{
-					// TODO: Revisit int types :)
-					Type:      string(process.Spec.HealthCheck.Type),
-					Port:      process.Spec.Ports[0],
-					Endpoint:  process.Spec.HealthCheck.Data.HTTPEndpoint,
-					TimeoutMs: uint(process.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
-				},
-				Ports:     process.Spec.Ports,
-				Instances: process.Spec.Instances,
-				MemoryMB:  process.Spec.MemoryMB,
-				DiskMB:    process.Spec.DiskQuotaMB,
-				CPUWeight: 0, // TODO: Logic in Cloud Controller is very Diego-centric. Chose not to deal with cpu requests for now
-			},
-		}
+		desiredEiriniLRP := createProcessLRP(process, app, droplet, appEnvSecret)
 
 		actualEiriniLRP := &eiriniv1.LRP{
 			ObjectMeta: metav1.ObjectMeta{
@@ -167,7 +115,7 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			},
 		}
 
-		result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualEiriniLRP, eiriniLRPMutateFunction(actualEiriniLRP, &desiredEiriniLRP))
+		result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualEiriniLRP, eiriniLRPMutateFunction(actualEiriniLRP, desiredEiriniLRP))
 		if err != nil {
 			logger.Info(fmt.Sprintf("Error occurred updating LRP: %s, %s", result, err))
 			return ctrl.Result{}, err
@@ -190,6 +138,63 @@ func (r *ProcessReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func createProcessLRP(process *cfappsv1alpha1.Process, app *cfappsv1alpha1.App, droplet *cfappsv1alpha1.Droplet, appEnvSecret *corev1.Secret) *eiriniv1.LRP {
+	// build the Deployment that we want
+	desiredEiriniLRP := eiriniv1.LRP{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      process.Name,
+			Namespace: process.Namespace,
+			Labels: map[string]string{
+				handlers.LabelAppGUID:               process.Spec.AppRef.Name,
+				"apps.cloudfoundry.org/processGuid": process.Name,
+				"apps.cloudfoundry.org/processType": process.Spec.ProcessType,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cfappsv1alpha1.SchemeBuilder.GroupVersion.String(),
+					Kind:       process.Kind,
+					Name:       process.Name,
+					UID:        process.UID,
+				},
+			},
+		},
+		Spec: eiriniv1.LRPSpec{
+			GUID:        process.Name,
+			Version:     process.ResourceVersion, // TODO: Do we care about this?
+			ProcessType: process.Spec.ProcessType,
+			AppName:     app.Spec.Name,
+			AppGUID:     app.Name,
+			OrgName:     "TBD",
+			OrgGUID:     "TBD",
+			SpaceName:   "TBD",
+			SpaceGUID:   "TBD",
+			Image:       droplet.Spec.Registry.Image,
+			Command:     commandForProcess(process, app),
+			Sidecars:    nil,
+			// TODO: Used for Docker images?
+			//PrivateRegistry: &eiriniv1.PrivateRegistry{
+			//	Username: "",
+			//	Password: "",
+			//},
+			// TODO: Can Eirini LRP be updated to take a secret name?
+			Env: secretDataToEnvMap(appEnvSecret.Data),
+			Health: eiriniv1.Healthcheck{
+				// TODO: Revisit int types :)
+				Type:      string(process.Spec.HealthCheck.Type),
+				Port:      process.Spec.Ports[0],
+				Endpoint:  process.Spec.HealthCheck.Data.HTTPEndpoint,
+				TimeoutMs: uint(process.Spec.HealthCheck.Data.TimeoutSeconds * 1000),
+			},
+			Ports:     process.Spec.Ports,
+			Instances: process.Spec.Instances,
+			MemoryMB:  process.Spec.MemoryMB,
+			DiskMB:    process.Spec.DiskQuotaMB,
+			CPUWeight: 0, // TODO: Logic in Cloud Controller is very Diego-centric. Chose not to deal with cpu requests for now
+		},
+	}
+	return &desiredEiriniLRP
 }
 
 func eiriniLRPMutateFunction(actualLRP, desiredLRP *eiriniv1.LRP) controllerutil.MutateFn {

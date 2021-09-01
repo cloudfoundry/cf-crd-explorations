@@ -78,16 +78,14 @@ func (r *DropletReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Extract Process and Command info from build
 	// Should we do this on every reconcile?
-	processCommandMap, exposedPorts, err := r.extractImageConfig(ctx, logger, droplet.Spec.Registry, droplet.Namespace)
+	extractedProcessTypes, exposedPorts, err := r.extractImageConfig(ctx, logger, droplet.Spec.Registry, droplet.Namespace)
 	if err != nil {
 		logger.Info(fmt.Sprintf("Error occurred extracting process types and commands: %s", err))
 		return ctrl.Result{}, err
 	}
 
 	updatedDroplet := droplet.DeepCopy()
-	updatedDroplet.Spec.ProcessTypes = []appsv1alpha1.ProcessType{
-		processCommandMap,
-	}
+	updatedDroplet.Spec.ProcessTypes = extractedProcessTypes
 	updatedDroplet.Spec.Ports = exposedPorts
 
 	err = r.Client.Patch(ctx, updatedDroplet, client.MergeFrom(&droplet))
@@ -135,10 +133,11 @@ func (r *DropletReconciler) fetchImageConfig(ctx context.Context, imageRef strin
 }
 
 // parse the application configuration from the OCI Image Configuration
-func (r *DropletReconciler) extractImageConfig(ctx context.Context, logger logr.Logger, registry appsv1alpha1.Registry, ns string) (map[string]string, []int32, error) {
+func (r *DropletReconciler) extractImageConfig(ctx context.Context, logger logr.Logger, registry appsv1alpha1.Registry, ns string) ([]appsv1alpha1.DropletProcessType, []int32, error) {
 	var imageConfig *v1.Config
 	var err error
 	var exposedPorts []int32
+	extractedProcessTypes := []appsv1alpha1.DropletProcessType{}
 
 	imageConfig, err = r.fetchImageConfig(ctx, registry.Image, registry.ImagePullSecrets, ns)
 	if err != nil {
@@ -160,12 +159,16 @@ func (r *DropletReconciler) extractImageConfig(ctx context.Context, logger logr.
 	}
 
 	// Loop over all the Processes and extract the complete command string
-	processCommandString := make(map[string]string)
 	for _, process := range buildMetadata.Processes {
-		processCommandString[process.Type] = extractFullCommand(process)
+		currentProcessType := appsv1alpha1.DropletProcessType{
+			Type:    process.Type,
+			Command: extractFullCommand(process),
+			Default: buildMetadata.BuildpackDefaultProcessType == process.Type,
+		}
+		extractedProcessTypes = append(extractedProcessTypes, currentProcessType)
 	}
 
-	return processCommandString, exposedPorts, nil
+	return extractedProcessTypes, exposedPorts, nil
 }
 
 // Reconstruct command with arguments into a single command string

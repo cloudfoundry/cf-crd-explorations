@@ -17,4 +17,17 @@ spec:
   currentDropletRef:
     kind: Droplet
     apiVersion: apps.cloudfoundry.org/v1alpha1
-    name: kpack-droplet-guid
+    name: build-guid
+  processType: web
+  command: ""
+  healthCheck:
+    type: http
+    data:
+      httpEndpoint: /health
+      invocationTimeoutSeconds: 10
+      timeoutSeconds: 10
+  instances: 5
+  memoryMB: 500
+  diskQuotaMB: 512
+  ports:
+    - 8080
