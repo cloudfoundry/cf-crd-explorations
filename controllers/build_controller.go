@@ -17,11 +17,12 @@ limitations under the License.
 package controllers
 
 import (
-	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 	"context"
 	"errors"
 	"fmt"
 	"strings"
+
+	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -188,8 +189,6 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 		// These fields will be used to create the droplet later, dropletImageRegistry is made differently for Buildpack builds
 		buildSucceeded := metav1.ConditionUnknown
-		dropletName := currentBuild.Name
-		dropletNamespace := currentBuild.Namespace
 		dropletImageRegistry := cfappsv1alpha1.Registry{
 			Image:            buildPackage.Spec.Source.Registry.Image,
 			ImagePullSecrets: buildPackage.Spec.Source.Registry.ImagePullSecrets,
@@ -246,57 +245,14 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		// buildSucceeded is usually "True" from Docker type, it is derived from kpack build from Buildpack type
 		// dropletImageRegistry is constructed from the Package for Docker type, and created from the kpack build from Buildpack type
 		if buildSucceeded == metav1.ConditionTrue {
-			desiredDroplet := cfappsv1alpha1.Droplet{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Droplet",
-					APIVersion: currentBuild.APIVersion,
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      dropletName,
-					Namespace: dropletNamespace,
-					Labels: map[string]string{
-						handlers.LabelBuildGUID: currentBuild.Name,
-						handlers.LabelAppGUID:   app.GetName(),
-					},
-				},
-				Spec: cfappsv1alpha1.DropletSpec{
-					Type:   currentBuild.Spec.Type,
-					AppRef: currentBuild.Spec.AppRef,
-					BuildRef: cfappsv1alpha1.BuildReference{
-						Kind:       "Build",
-						APIVersion: currentBuild.APIVersion,
-						Name:       currentBuild.Name,
-					},
-					Registry: dropletImageRegistry,
-				},
-				Status: cfappsv1alpha1.DropletStatus{
-					// TODO: Type is always KpackImageReference - should this have a different type for Docker images?
-					ImageRef: cfappsv1alpha1.KpackImageReference{
-						Kind:       buildPackage.Kind,
-						APIVersion: buildPackage.APIVersion,
-						Name:       buildPackage.Name,
-					},
-				},
-			}
-			actualDroplet := &v1alpha1.Droplet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      dropletName,
-					Namespace: dropletNamespace,
-				},
-			}
-			// Create or update the Droplet with K8s client
-			result, err := controllerutil.CreateOrUpdate(ctx, r.Client, actualDroplet, dropletMutateFunction(actualDroplet, &desiredDroplet))
-			if err != nil {
-				// TODO: Update build conditions when droplet push fails?
-				logger.Info(fmt.Sprintf("Error occurred updating Droplet: %s, %s", result, err))
-				return ctrl.Result{}, err
+			newBuildDropletStatus := cfappsv1alpha1.BuildDropletStatus{
+				Registry:     dropletImageRegistry,
+				ProcessTypes: []cfappsv1alpha1.ProcessType{},
+				Ports:        []int32{},
 			}
 
-			currentBuild.Status.DropletReference = cfappsv1alpha1.DropletReference{
-				Kind:       desiredDroplet.Kind,
-				APIVersion: desiredDroplet.APIVersion,
-				Name:       desiredDroplet.Name,
-			}
+			currentBuild.Status.BuildDropletStatus = &newBuildDropletStatus
+			updateLocalConditionStatus(&currentBuild.Status.Conditions, "DropletReady", metav1.ConditionFalse, strings.Title(string(currentBuild.Spec.Type)), "")
 		}
 
 		updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.SucceededConditionType, buildSucceeded, strings.Title(string(currentBuild.Spec.Type)), "")

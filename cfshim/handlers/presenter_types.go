@@ -3,9 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 )
@@ -115,9 +116,9 @@ func formatAppToPresenter(app *appsv1alpha1.App) CFAPIPresenterAppResource {
 
 func formatBuildToPresenter(build *appsv1alpha1.Build) CFAPIBuildResource {
 	var dropletRef *CFAPIBuildDroplet
-	if build.Status.DropletReference.Name != "" {
+	if build.Status.BuildDropletStatus != nil {
 		dropletRef = &CFAPIBuildDroplet{
-			GUID: build.Status.DropletReference.Name,
+			GUID: build.Name,
 		}
 	}
 

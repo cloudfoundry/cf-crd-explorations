@@ -47,11 +47,22 @@ type BuildStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	// Contains a reference to the compiled build image
-	DropletReference DropletReference `json:"dropletRef,omitempty"`
+	BuildDropletStatus *BuildDropletStatus `json:"droplet,omitempty"`
 
 	// TODO: figure out why omitempty behaves weird, seems like kubectl doesn't even represent internally with an empty slice
 	// Contains the current status of the build
 	Conditions []metav1.Condition `json:"conditions"`
+}
+
+type BuildDropletStatus struct {
+	// Specifies the Container registry image, and secrets to access
+	Registry Registry `json:"registry"`
+
+	// Specifies the process types and associated start commands for the Droplet
+	ProcessTypes []ProcessType `json:"processTypes"`
+
+	// Specifies the exposed ports for the application
+	Ports []int32 `json:"ports"`
 }
 
 //+kubebuilder:object:root=true

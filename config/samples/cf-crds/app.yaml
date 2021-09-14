@@ -17,4 +17,4 @@ spec:
   currentDropletRef:
     kind: Droplet
     apiVersion: apps.cloudfoundry.org/v1alpha1
-    name: kpack-droplet-guid
+    name: ""

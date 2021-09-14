@@ -20,6 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/platform"
 	"github.com/go-logr/logr"
@@ -29,8 +32,7 @@ import (
 	"github.com/pivotal/kpack/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"strconv"
-	"strings"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	appsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
+	cfappsv1alpha1 "cloudfoundry.org/cf-crd-explorations/api/v1alpha1"
 )
 
 // DropletReconciler reconciles a Droplet object
@@ -46,6 +49,10 @@ type DropletReconciler struct {
 	Scheme          *runtime.Scheme
 	KeychainFactory registry.KeychainFactory
 }
+
+const (
+	DropletReadyConditionType = "DropletReady"
+)
 
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=droplets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=droplets/status,verbs=get;update;patch
@@ -65,8 +72,8 @@ type DropletReconciler struct {
 func (r *DropletReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	var droplet appsv1alpha1.Droplet
-	logger.Info(fmt.Sprintf("Attempting to reconcile %s", req.NamespacedName))
+	var droplet appsv1alpha1.Build
+	logger.Info(fmt.Sprintf("Attempting to reconcile DROPLET %s", req.NamespacedName))
 	// if it doesn't exist noop return
 	if err := r.Get(ctx, req.NamespacedName, &droplet); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -76,22 +83,38 @@ func (r *DropletReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Decide if you keep reconciling based on statuses
+	buildReadyStatusValue := getConditionOrSetAsUnknown(&droplet.Status.Conditions, cfappsv1alpha1.ReadyConditionType)
+	dropletReadyStatusValue := getConditionOrSetAsUnknown(&droplet.Status.Conditions, DropletReadyConditionType)
+
+	if buildReadyStatusValue != metav1.ConditionTrue {
+		logger.Info("Build was not ready")
+		return ctrl.Result{}, nil
+	}
+
+	if dropletReadyStatusValue == metav1.ConditionTrue {
+		logger.Info("Droplet was ready, no need to re-reconcile")
+		return ctrl.Result{}, nil
+	}
+
 	// Extract Process and Command info from build
 	// Should we do this on every reconcile?
-	processCommandMap, exposedPorts, err := r.extractImageConfig(ctx, logger, droplet.Spec.Registry, droplet.Namespace)
+	processCommandMap, exposedPorts, err := r.extractImageConfig(ctx, logger, droplet.Status.BuildDropletStatus.Registry, droplet.Namespace)
 	if err != nil {
 		logger.Info(fmt.Sprintf("Error occurred extracting process types and commands: %s", err))
 		return ctrl.Result{}, err
 	}
 
-	updatedDroplet := droplet.DeepCopy()
-	updatedDroplet.Spec.ProcessTypes = []appsv1alpha1.ProcessType{
+	droplet.Status.BuildDropletStatus.ProcessTypes = []appsv1alpha1.ProcessType{
 		processCommandMap,
 	}
-	updatedDroplet.Spec.Ports = exposedPorts
+	droplet.Status.BuildDropletStatus.Ports = exposedPorts
+	updateLocalConditionStatus(&droplet.Status.Conditions, DropletReadyConditionType, metav1.ConditionTrue, "Buildpack", "")
 
-	err = r.Client.Patch(ctx, updatedDroplet, client.MergeFrom(&droplet))
-	if err != nil {
+	// Update Build Status Conditions based on changes made to local copy
+	if err := r.Status().Update(ctx, &droplet); err != nil {
+		logger.Error(err, "unable to update Droplet status")
+		logger.Info(fmt.Sprintf("Build status: %+v", droplet.Status))
 		return ctrl.Result{}, err
 	}
 
@@ -101,7 +124,7 @@ func (r *DropletReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *DropletReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&appsv1alpha1.Droplet{}).
+		For(&appsv1alpha1.Build{}).
 		Complete(r)
 }
 
@@ -138,7 +161,7 @@ func (r *DropletReconciler) fetchImageConfig(ctx context.Context, imageRef strin
 func (r *DropletReconciler) extractImageConfig(ctx context.Context, logger logr.Logger, registry appsv1alpha1.Registry, ns string) (map[string]string, []int32, error) {
 	var imageConfig *v1.Config
 	var err error
-	var exposedPorts []int32
+	exposedPorts := []int32{}
 
 	imageConfig, err = r.fetchImageConfig(ctx, registry.Image, registry.ImagePullSecrets, ns)
 	if err != nil {
@@ -176,7 +199,7 @@ func extractFullCommand(process launch.Process) string {
 
 func extractExposedPorts(imageConfig *v1.Config) ([]int32, error) {
 	// Drop the protocol since we only use TCP (the default) and only store the port number
-	var ports []int32
+	ports := []int32{}
 	for port, _ := range imageConfig.ExposedPorts {
 		portInt, err := strconv.Atoi(port)
 		if err != nil {

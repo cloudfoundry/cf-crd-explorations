@@ -81,7 +81,7 @@ type LifecycleData struct {
 // These constants are for metav1 Conditons in the K8s CR Status Conditions
 const (
 	// the CR is ready to be consumed- for build it means a droplet has been created
-	ReadyConditionType string = "Ready"
+	ReadyConditionType string = "BuildReady"
 	// the CR job has completed successfully- for build set to true when droplet is created
 	SucceededConditionType string = "Succeeded"
 	// the build is ongoing, used for kpack builds

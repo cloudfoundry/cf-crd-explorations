@@ -149,19 +149,46 @@ spec:
                   - type
                   type: object
                 type: array
-              dropletRef:
+              droplet:
                 description: 'INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run "make" to regenerate code after modifying this file Contains a reference to the compiled build image'
                 properties:
-                  apiVersion:
-                    type: string
-                  kind:
-                    type: string
-                  name:
-                    type: string
+                  ports:
+                    description: Specifies the exposed ports for the application
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
+                  processTypes:
+                    description: Specifies the process types and associated start commands for the Droplet
+                    items:
+                      additionalProperties:
+                        type: string
+                      description: ProcessType is a map of process names and associated start commands for the Droplet
+                      type: object
+                    type: array
+                  registry:
+                    description: Specifies the Container registry image, and secrets to access
+                    properties:
+                      image:
+                        description: 'image: Location of the source image'
+                        type: string
+                      imagePullSecrets:
+                        description: 'imagePullSecrets: A list of dockercfg or dockerconfigjson secret names required if the source image is private'
+                        items:
+                          description: LocalObjectReference contains enough information to let you locate the referenced object inside the same namespace.
+                          properties:
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                          type: object
+                        type: array
+                    required:
+                    - image
+                    type: object
                 required:
-                - apiVersion
-                - kind
-                - name
+                - ports
+                - processTypes
+                - registry
                 type: object
             required:
             - conditions
