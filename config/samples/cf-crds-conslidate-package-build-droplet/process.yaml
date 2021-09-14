@@ -1,0 +1,48 @@
+---
+# Defines a CFProcess for a given app. Results in an Eirini LRP.
+apiVersion: apps.cloudfoundry.org/v1alpha1
+kind: CFProcess
+metadata:
+  # apps.cloudfoundry.org/ labels are all managed by a mutating webhook based on appRef and its droplet
+  labels:
+    apps.cloudfoundry.org/appGuid: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+    apps.cloudfoundry.org/processGuid: my-app5-web
+    apps.cloudfoundry.org/processType: web
+  name: my-app5-web
+  namespace: default
+  # ownerReferences are managed by mutating webhook that looks at appRef
+  ownerReferences:
+  - apiVersion: apps.cloudfoundry.org/v1alpha1
+    kind: CFApp
+    name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+    uid: 2c5e9145-dee1-407f-b507-4ea84b25a7b4
+spec:
+  appRef:
+    name: 14dcda7d-1fa1-4a91-b437-fbdba20e8c5a
+  command: bundle exec rackup config.ru -p $PORT -o 0.0.0.0
+  diskQuotaMB: 512
+  healthCheck:
+    type: process
+    data:
+      invocationTimeoutSeconds: 0
+      timeoutSeconds: 0
+  desiredInstances: 4 #desired instances
+  memoryMB: 500
+  ports:
+  - 8080
+  processType: web
+status:
+  runningInstances: 3 #actual running instances
+  conditions:
+  - type: Running
+    status: "True" # True if any replicas are running
+    reason: Eirini
+    message: "Process is running"
+  - type: Ready
+    status: "False"
+    reason: Eirini
+    message: "Not all processes are running"
+  - type: Restarting
+    status: "False"
+    reason: Restarted
+    message: "Restart was successful"
