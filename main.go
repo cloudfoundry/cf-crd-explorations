@@ -179,6 +179,13 @@ func main() {
 			Client: mgr.GetClient(),
 		}
 		myRouter := mux.NewRouter()
+		loggingMiddleware := func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				log.Println(r.RequestURI)
+				next.ServeHTTP(w, r)
+			})
+		}
+		myRouter.Use(loggingMiddleware)
 		myRouter.HandleFunc(handlers.GetAppEndpoint, appHandler.GetAppHandler).Methods("GET")
 		myRouter.HandleFunc(handlers.RootEndpoint, dummyHandler.HandleRoot).Methods("GET")
 		myRouter.HandleFunc(handlers.AppsEndpoint, appHandler.ListAppsHandler).Methods("GET")
@@ -193,6 +200,10 @@ func main() {
 		myRouter.HandleFunc(handlers.BuildsEndpoint, buildHandler.CreateBuildsHandler).Methods("POST")
 		myRouter.HandleFunc(handlers.OrgsEndpoint, dummyHandler.HandleOrgs).Methods("GET")
 		myRouter.HandleFunc(handlers.SpacesEndpoint, dummyHandler.HandleSpaces).Methods("GET")
+		myRouter.HandleFunc(handlers.SpaceSummaryEndpoint, appHandler.ListAppsHandler).Methods("GET")
+		myRouter.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "404", http.StatusNotFound)
+		})
 		log.Fatal(http.ListenAndServe(":9000", myRouter))
 	}()
 
