@@ -17,14 +17,15 @@ limitations under the License.
 package controllers
 
 import (
-	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
+	"cloudfoundry.org/cf-crd-explorations/cfshim/handlers"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -48,6 +49,7 @@ type AppReconciler struct {
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=apps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=apps/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=apps.cloudfoundry.org,resources=apps/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
