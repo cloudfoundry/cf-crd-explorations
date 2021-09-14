@@ -98,7 +98,10 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
+	// TODO: At this point we have fetched an App and a Package, but have applied no other logic (other than checking to make sure it doesn't exist already).
+
 	// Figure out if the status is succeeded True/False/Unknown
+	// Setting default conditions
 	buildSucceededStatusValue := getConditionOrSetAsUnknown(&currentBuild.Status.Conditions, cfappsv1alpha1.SucceededConditionType)
 	buildStagingStatusValue := getConditionOrSetAsUnknown(&currentBuild.Status.Conditions, cfappsv1alpha1.StagingConditionType)
 
@@ -106,11 +109,13 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	//	Error and retry if package is empty
 	// 		Docker: set "Staging": "False"
 	//		Buildpack: create kpack Image, set "Staging": "True"
+	// TODO: If defaults conditions (unknown) enter.
 	if buildSucceededStatusValue == metav1.ConditionUnknown &&
 		buildStagingStatusValue == metav1.ConditionUnknown {
 
 		// Package empty - return ctrl with err to force retry logic
 		// Indefinite retry - no exponential backoff implemented yet?
+		// TODO: Assumed to be standard check.
 		if cfappsv1alpha1.PackageType(buildPackage.Spec.Source.Registry.Image) == "" {
 			updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.SucceededConditionType, metav1.ConditionUnknown, strings.Title(string(currentBuild.Spec.Type)), "packageRef package was empty")
 			updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.ReadyConditionType, metav1.ConditionFalse, strings.Title(string(currentBuild.Spec.Type)), "packageRef package was empty")
@@ -126,12 +131,18 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		}
 
 		// For Docker type build staging, just move on to the droplet-creation stage by setting Condition "Staging": "False"
+		// TODO: Not worried about Docker builds right now.
 		if currentBuild.Spec.Type == cfappsv1alpha1.DockerLifecycle {
 			updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.ReadyConditionType, metav1.ConditionFalse, "Docker", "")
 			updateLocalConditionStatus(&currentBuild.Status.Conditions, cfappsv1alpha1.StagingConditionType, metav1.ConditionFalse, "Docker", "")
 
 			// For Buildpack type build staging, we need to create a kpack image
+			// TODO: Where the meat of different buildpacks starts to be exposed.
 		} else if currentBuild.Spec.Type == cfappsv1alpha1.BuildpackLifecycle {
+			// TODO: Implement check for Builder
+			// Invalid SA will cause the Builder to be invalid, as well - this check should cover that.
+			// Pseudo:
+			// if Builder.ready? {
 			kpackImageName := "cf-build-" + currentBuild.Name
 			kpackImageNamespace := currentBuild.Namespace
 			// make a desired kpack CR
@@ -147,12 +158,16 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				Spec: buildv1alpha1.ImageSpec{
 					Tag: settings.GlobalSettings.RegistryTagBase + "/" + app.GetName(),
 					Builder: corev1.ObjectReference{
-						Kind:       "ClusterBuilder",
+						// TODO: Should we provide this option? Less load on operator, but increases complexity of checking type. Makes hierarchy Build > App > Builder > ClusterBuilder.
+						Kind: "ClusterBuilder",
+						// TODO: This needs a check to fetch Builder from App - refer to document - invalid builder will cause Image to get stuck.
 						Name:       "my-sample-builder", // TODO: cf-for-k8s makes a builder per-app
 						APIVersion: "kpack.io/v1alpha1",
 					},
+					// TODO: Should follow venction, but might require lookup for SA - or let it fail and hope Kpack is eventually consistent
 					ServiceAccount: "kpack-service-account", // TODO: this is hardcoded too! You need a serviceAccount w/ secrets with this name in every namespace you build in.
 					Source: buildv1alpha1.SourceConfig{
+						// TODO: Do we need to have additional logic to mount in secrets based on namespace?
 						Registry: &buildv1alpha1.Registry{
 							Image:            buildPackage.Spec.Source.Registry.Image,
 							ImagePullSecrets: buildPackage.Spec.Source.Registry.ImagePullSecrets,
@@ -161,6 +176,11 @@ func (r *BuildReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 					},
 				},
 			}
+			// } else {
+			//   update status on Build
+			// 	 return
+			// }
+
 			// actualImage is used by the function below to look up if we created an kpack image for this cf build already
 			actualImage := &buildv1alpha1.Image{
 				ObjectMeta: metav1.ObjectMeta{

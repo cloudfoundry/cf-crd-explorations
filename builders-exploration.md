@@ -56,3 +56,9 @@ Path 4 - App and Build specify Lifecycles
 
 * The operator would need to specify the proper credentials per namespace.
 * Some changes might need to be made to change how SA & Secrets are loaded since they are assumed to be Globalish today (in this spike repo).
+
+
+## Interestings
+* If a kpack Image is created with an invalid Builder, the Image gets stuck, even if the Builder becomes ready and valid. This will require validation of Builders for Apps/Builds, rather than creating an Image and hoping for eventual consistency. Following up with Buildpacks team: https://buildpacks.slack.com/archives/CQ10WHMT4/p1631662407010300
+* At this time, only ClusterStacks are available: https://github.com/pivotal/kpack/blob/main/docs/stack.md
+* At this time, only ClusterStores are available: https://github.com/pivotal/kpack/blob/main/docs/store.md
