@@ -1,3 +1,7 @@
+# ⚠️ Archived ⚠️
+
+This repo is no longer being used. Development is actively underway on https://github.com/cloudfoundry/cf-k8s-controllers and any future exploration will take place on that repo as well.
+
 # cf-crd-explorations
 
 ⚠️ **This Repository is for Experimentation Only** ⚠️
